@@ -1,0 +1,6 @@
+README.md
+setup.py
+seisLM.egg-info/PKG-INFO
+seisLM.egg-info/SOURCES.txt
+seisLM.egg-info/dependency_links.txt
+seisLM.egg-info/top_level.txt

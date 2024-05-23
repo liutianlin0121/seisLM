@@ -1,0 +1,9 @@
+{
+  "pylint.args": [
+      "--rcfile=/home/liu0003/Desktop/projects/seisLM/.pylintrc",
+      "--disable=W0221, W0613, E0015, W0621, C0103",
+      "--generated-members",
+      "torch.*"
+  ],
+  "editor.formatOnSave": false,
+}

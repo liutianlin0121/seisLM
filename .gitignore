@@ -1,0 +1,18 @@
+.ipynb_checkpoints/
+*.pyc
+__pycache__/
+data/
+.DS_Store
+*/.ipynb_checkpoints/*
+*/. DS_Store/*
+.db
+.owncloudsync.log
+.db-shm
+.db-wal
+.sync_5de6efbf0140.db-shm
+*.h5
+*.pth
+earthquakeLM.egg-info/
+wandb/
+saved_models/
+figs/
