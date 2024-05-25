@@ -1,8 +1,9 @@
 """Data collator for Wav2Vec2ForPreTraining model."""
-from typing import Optional, Tuple, Dict
+from typing import Optional, Dict
 from dataclasses import dataclass
 import torch
 import numpy as np
+import einops
 from transformers import Wav2Vec2ForPreTraining
 from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices, _sample_negative_indices
 
@@ -50,15 +51,10 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
   def __call__(self, sample: Dict[str, np.ndarray]
                ) -> Dict[str, torch.Tensor]:
 
-    print(f'sample {sample}')
-    # features = sample['X']
     features = np.stack([s['X'] for s in sample])
-
     features = torch.from_numpy(features)
 
-    print(features.shape)
-
-    batch_size, seq_length = features.shape
+    batch_size, _, seq_length = features.shape
 
     batch = {}
 
@@ -69,15 +65,16 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
     mask_indices_seq_length = self.model._get_feat_extract_output_lengths(
       seq_length
     )
+
     mask_indices_seq_length = int(mask_indices_seq_length)
 
     features_shape = (batch_size, mask_indices_seq_length)
 
     # sample randomly masked indices
     mask_time_indices = _compute_mask_indices(
-        features_shape,
-        self.mask_time_prob,
-        self.mask_time_length,
+        shape=features_shape,
+        mask_prob=self.mask_time_prob,
+        mask_length=self.mask_time_length,
     )
 
     # sample negative indices

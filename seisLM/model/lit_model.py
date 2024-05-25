@@ -2,24 +2,23 @@
 import math
 import numpy as np
 import torch
-import lightning as L
-from transformers import Wav2Vec2ForPreTraining
 from torch.optim.lr_scheduler import LambdaLR
+import lightning as L
+from seisLM.model.multidim_wav2vec2 import MultiDimWav2Vec2ForPreTraining
 
-class LitWav2Vec2(L.LightningModule):
+class LitMultiDimWav2Vec2(L.LightningModule):
   """LightningModule for Wav2Vec2 model."""
   def __init__(self, model_config, training_config):
     super().__init__()
     self.training_config = training_config
     self.model_config = model_config
-    self.model = Wav2Vec2ForPreTraining(model_config)
+    self.model = MultiDimWav2Vec2ForPreTraining(model_config)
     self.save_hyperparameters()
 
   def training_step(self, batch, batch_idx):
     # pylint:disable=missing-function-docstring
     # pylint:disable=invalid-name
 
-    batch.pop('labels')
     mask_time_indices = batch["mask_time_indices"]
     num_losses = mask_time_indices.sum()
     percent_masked = mask_time_indices.float().mean()
@@ -66,7 +65,6 @@ class LitWav2Vec2(L.LightningModule):
   def validation_step(self, batch, batch_idx):
     # pylint:disable=missing-function-docstring
     # pylint:disable=invalid-name
-    batch.pop('labels')
     outputs = self.model(**batch)
     validation_outputs = {
       "val/sum_loss": outputs.loss,

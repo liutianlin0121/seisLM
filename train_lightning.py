@@ -1,31 +1,31 @@
 """Training of earthquake language model."""
 import time
 from ml_collections import config_dict
+from torch.utils.data import DataLoader
 import lightning as L
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import WandbLogger
 from transformers import Wav2Vec2Config
-from earthquakeLM.model import LitWav2Vec2
-from earthquakeLM.utils import datadir
-from earthquakeLM.data_pipeline import dataset as costa_rica_dataset
+import seisbench.data as sbd
+import seisbench.generate as sbg
+from seisbench.util import worker_seeding
+from seisLM.model.lit_model import LitMultiDimWav2Vec2
+from seisLM.data_pipeline import collator
 
 
 model_name_or_path = "patrickvonplaten/wav2vec2-base-v2"
 
 model_config = Wav2Vec2Config.from_pretrained(model_name_or_path)
-model_config.conv_dim = [a//8 for a in model_config.conv_dim]
-model_config.conv_stride = [a * 2 for a in model_config.conv_stride]
-model_config.conv_kernel = [a * 2 for a in model_config.conv_kernel]
-model_config.num_attention_heads = 8
-model_config.diversity_loss_weight = 0.15
+# model_config.num_attention_heads = 8
+model_config.diversity_loss_weight = 0.3 #0.15
+model_config.input_dim = 3
 
 
 training_config = config_dict.ConfigDict()
-training_config.dataset_path = datadir('processed/pt')
 training_config.mask_time_prob = 0.65
 training_config.mask_time_length = 10
-training_config.global_batch_size = 4
+training_config.global_batch_size = 128
 training_config.seed = 42
 training_config.warmup_frac_step = 0.2
 training_config.learning_rate = 1e-4
@@ -37,46 +37,55 @@ training_config.adam_epsilon = 1e-8
 training_config.max_gumbel_temperature = 2.0
 training_config.min_gumbel_temperature = 0.5
 training_config.log_every_n_steps = 100
-training_config.logger_project_name = 'earthquake-LM'
-training_config.num_workers = 1
+training_config.logger_project_name = 'seisLM'
+training_config.num_workers = 8
 training_config.model_save_dir = \
-  '/home/liu0003/Desktop/projects/earthquake-LM/saved_models'
+  '/home/liu0003/Desktop/projects/seisLM/saved_models'
 training_config.num_train_fraction = 0.8
 training_config.num_val_fraction = 0.1
 training_config.num_test_fraction = 0.1
 training_config.precision = "32"
-training_config.data_normalization_type = 'root_mean_square'
 training_config.gpu_devices = [0, 1]
-
 seed_everything(training_config.seed)
 
 
-# Prepare data collator and dataloader
-dataset = costa_rica_dataset.EarthquakeRecordingDataset(
-    training_config.dataset_path
-)
+model = LitMultiDimWav2Vec2(model_config, training_config)
 
-model = LitWav2Vec2(model_config, training_config)
+
+data = sbd.STEAD(component_order='ZNE')
+data.filter(data.metadata["trace_category"] != 'noise')
+train, dev, test = data.train_dev_test()
+train_generator = sbg.GenericGenerator(train)
+val_generator = sbg.GenericGenerator(dev)
+
+augmentations = [
+    sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
+]
+train_generator.add_augmentations(augmentations)
+val_generator.add_augmentations(augmentations)
+
 
 
 data_collator = \
-  costa_rica_dataset.DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding(
+  collator.DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding(
       model=model.model,
       mask_time_prob=training_config.mask_time_prob,
       mask_time_length=training_config.mask_time_length,
-      normalization_type=training_config.data_normalization_type,
   )
 
-dataloaders = costa_rica_dataset.get_dataloaders_costa_rica(
-    dataset,
-    data_collator=data_collator,
-    train_batch_size=training_config.global_batch_size,
-    eval_batch_size=training_config.global_batch_size,
-    num_train_fraction=training_config.num_train_fraction,
-    num_val_fraction=training_config.num_val_fraction,
-    num_test_fraction=training_config.num_test_fraction,
-    num_workers=training_config.num_workers
-)
+dataloaders = {
+  'train': DataLoader(
+    train_generator, batch_size=training_config.global_batch_size, shuffle=True,
+    num_workers=training_config.num_workers, worker_init_fn=worker_seeding,
+    collate_fn=data_collator,
+    ),
+  'val': DataLoader(
+    val_generator, batch_size=training_config.global_batch_size, shuffle=False,
+    num_workers=training_config.num_workers, worker_init_fn=worker_seeding,
+    collate_fn=data_collator,
+    ),
+}
+
 
 training_config.max_train_steps = training_config.num_train_epochs * len(
   dataloaders['train'] )
