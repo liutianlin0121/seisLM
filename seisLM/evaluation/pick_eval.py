@@ -3,7 +3,6 @@
 https://github.com/seisbench/pick-benchmark
 """
 
-from abc import ABCMeta
 from pathlib import Path
 import logging
 import pandas as pd
@@ -35,7 +34,6 @@ def get_dataset_by_name(name):
   :return: Dataset class from seisbench.data
   """
   try:
-    assert isinstance(getattr(sbd, name), ABCMeta)
     return sbd.__getattribute__(name)
   except AttributeError:
     raise ValueError(f"Unknown dataset '{name}'.")
@@ -62,8 +60,8 @@ def save_pick_predictions(
   targets = Path(targets)
   sets = sets.split(",")
 
-  model = supervised_models.__getattribute__("PhaseNet" + "Lit")()
-  model.model = sbm.PhaseNet.from_pretrained(data_name)
+  model = supervised_models.__getattribute__(model_name + "Lit")()
+  model.model = sbm.__getattribute__(model_name).from_pretrained(data_name)
   print(model.model.weights_docstring)
 
   dataset = get_dataset_by_name(data_aliases[data_name])(
