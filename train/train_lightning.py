@@ -19,10 +19,10 @@ model_name_or_path = "patrickvonplaten/wav2vec2-base-v2"
 
 model_config = Wav2Vec2Config.from_pretrained(model_name_or_path)
 # model_config.num_attention_heads = 8
-model_config.diversity_loss_weight = 0.3 #0.15
+model_config.diversity_loss_weight = 0.3
 model_config.input_dim = 3
 
-# make sure that the hidden lengths do not change
+# If we want to keep the hidden lengths the same:
 # model_config.model_config = [512]
 # model_config.conv_kernel = [1]
 # model_config.conv_stride = [1]
