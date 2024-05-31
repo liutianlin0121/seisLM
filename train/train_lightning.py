@@ -7,6 +7,7 @@ from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import WandbLogger
 from transformers import Wav2Vec2Config
+import numpy as np
 import seisbench.data as sbd
 import seisbench.generate as sbg
 from seisbench.util import worker_seeding
@@ -21,11 +22,22 @@ model_config = Wav2Vec2Config.from_pretrained(model_name_or_path)
 model_config.diversity_loss_weight = 0.3 #0.15
 model_config.input_dim = 3
 
+# make sure that the hidden lengths do not change
+# model_config.model_config = [512]
+# model_config.conv_kernel = [1]
+# model_config.conv_stride = [1]
+
+model_config.conv_dim = [256, 256]
+model_config.conv_kernel = [3, 3]
+model_config.conv_stride = [2, 2]
+model_config.hidden_size = 240
+model_config.num_hidden_layers = 6
+model_config.num_feat_extract_layers = len(model_config.conv_dim)
 
 training_config = config_dict.ConfigDict()
 training_config.mask_time_prob = 0.65
 training_config.mask_time_length = 10
-training_config.global_batch_size = 128
+training_config.global_batch_size = 8 #128
 training_config.seed = 42
 training_config.warmup_frac_step = 0.2
 training_config.learning_rate = 1e-4
@@ -58,9 +70,50 @@ train, dev, test = data.train_dev_test()
 train_generator = sbg.GenericGenerator(train)
 val_generator = sbg.GenericGenerator(dev)
 
+# Phase dict for labelling. We only study P and S phases without differentiating between them.
+phase_dict = {
+    "trace_p_arrival_sample": "P",
+    "trace_pP_arrival_sample": "P",
+    "trace_P_arrival_sample": "P",
+    "trace_P1_arrival_sample": "P",
+    "trace_Pg_arrival_sample": "P",
+    "trace_Pn_arrival_sample": "P",
+    "trace_PmP_arrival_sample": "P",
+    "trace_pwP_arrival_sample": "P",
+    "trace_pwPm_arrival_sample": "P",
+    "trace_s_arrival_sample": "S",
+    "trace_S_arrival_sample": "S",
+    "trace_S1_arrival_sample": "S",
+    "trace_Sg_arrival_sample": "S",
+    "trace_SmS_arrival_sample": "S",
+    "trace_Sn_arrival_sample": "S",
+}
+
+
 augmentations = [
+    sbg.OneOf(
+        [
+            sbg.WindowAroundSample(
+                list(phase_dict.keys()),
+                samples_before=3000,
+                windowlen=6000,
+                selection="random",
+                strategy="variable",
+            ),
+            sbg.NullAugmentation(),
+        ],
+        probabilities=[2, 1],
+    ),
+    sbg.RandomWindow(
+        low=None,
+        high=None,
+        windowlen=3001,
+        strategy="pad",
+    ),
+    sbg.ChangeDtype(np.float32),
     sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
 ]
+
 train_generator.add_augmentations(augmentations)
 val_generator.add_augmentations(augmentations)
 
