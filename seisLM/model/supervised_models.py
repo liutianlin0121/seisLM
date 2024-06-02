@@ -1,5 +1,8 @@
 """
 This file contains the model specifications.
+
+Taken from:
+https://github.com/seisbench/pick-benchmark/blob/main/benchmark/models.py
 """
 
 import seisbench.models as sbm

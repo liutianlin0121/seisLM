@@ -7,9 +7,8 @@ Typical usage example:
 checkpointsdir(experiment_name)
 """
 
-import git
 import os
-from typing import Optional
+import git
 
 
 def gitdir() -> str:

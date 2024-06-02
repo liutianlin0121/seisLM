@@ -1,9 +1,11 @@
 """Wav2Vec2 model configuration."""
+from typing import Optional, Tuple, Union
 import transformers.models.wav2vec2.modeling_wav2vec2 as hf_wav2vec2
+from transformers.modeling_outputs import TokenClassifierOutput
 from transformers import activations
+import torch
 from torch import nn
 import einops
-
 
 class Wav2Vec2NoLayerNormConvLayer(nn.Module):
   def __init__(self, config, layer_id=0):
@@ -174,3 +176,81 @@ class MultiDimWav2Vec2ForPreTraining(hf_wav2vec2.Wav2Vec2ForPreTraining):
   def __init__(self, config: hf_wav2vec2.Wav2Vec2Config):
     super().__init__(config)
     self.wav2vec2 = MultiDimWav2Vec2Model(config)
+
+
+_HIDDEN_STATES_START_POSITION = 2
+
+class MultiDimWav2Vec2ForFrameClassification(
+  hf_wav2vec2.Wav2Vec2ForAudioFrameClassification):
+  """ Wav2Vec2 model with a contrastive loss head."""
+
+  def __init__(self, config: hf_wav2vec2.Wav2Vec2Config):
+    super().__init__(config)
+    self.wav2vec2 = MultiDimWav2Vec2Model(config)
+
+  def forward(
+      self,
+      input_values: Optional[torch.Tensor],
+      attention_mask: Optional[torch.Tensor] = None,
+      labels: Optional[torch.Tensor] = None,
+      output_attentions: Optional[bool] = None,
+      output_hidden_states: Optional[bool] = None,
+      return_dict: Optional[bool] = None,
+  ) -> Union[Tuple, TokenClassifierOutput]:
+    r"""
+    labels (`torch.LongTensor` of shape `(batch_size, hidden_size, num_labels)`,
+        *optional*):
+        Onehot labels for computing the frame classification loss.
+    """
+
+    return_dict = (
+      return_dict if return_dict is not None else self.config.use_return_dict
+    )
+
+    output_hidden_states = (
+      True if self.config.use_weighted_layer_sum else output_hidden_states
+    )
+
+    outputs = self.wav2vec2(
+        input_values,
+        attention_mask=attention_mask,
+        output_attentions=output_attentions,
+        output_hidden_states=output_hidden_states,
+        return_dict=return_dict,
+    )
+
+
+    # The resulting hidden_states: [batch_size, seq_len, hidden_size]
+    if self.config.use_weighted_layer_sum:
+      hidden_states = outputs[_HIDDEN_STATES_START_POSITION]
+      hidden_states = torch.stack(hidden_states, dim=1)
+      norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
+      hidden_states = (hidden_states * norm_weights.view(-1, 1, 1)).sum(dim=1)
+    else:
+      hidden_states = outputs[0]
+
+    logits = self.classifier(hidden_states)
+    # The logits: [batch_size, seq_len, num_labels]
+
+    loss = None
+
+    if labels is not None:
+      reshaped_label = torch.argmax(labels.view(-1, self.num_labels), axis=1)
+      reshaped_logits = logits.view(-1, self.num_labels)
+
+      loss_fct = torch.nn.CrossEntropyLoss()
+      loss = loss_fct(
+        reshaped_logits,
+        reshaped_label
+      )
+
+    if not return_dict:
+      output = (logits,) + outputs[_HIDDEN_STATES_START_POSITION:]
+      return output
+
+    return TokenClassifierOutput(
+        loss=loss,
+        logits=logits,
+        hidden_states=outputs.hidden_states,
+        attentions=outputs.attentions,
+    )
