@@ -187,36 +187,34 @@ class MultiDimWav2Vec2ForFrameClassification(
   def __init__(self, config: hf_wav2vec2.Wav2Vec2Config):
     super().__init__(config)
     self.wav2vec2 = MultiDimWav2Vec2Model(config)
+    self.classifier = nn.Linear(
+      config.hidden_size + config.input_dim,
+      config.num_labels
+    )
 
   def forward(
       self,
       input_values: Optional[torch.Tensor],
-      attention_mask: Optional[torch.Tensor] = None,
-      labels: Optional[torch.Tensor] = None,
-      output_attentions: Optional[bool] = None,
-      output_hidden_states: Optional[bool] = None,
-      return_dict: Optional[bool] = None,
   ) -> Union[Tuple, TokenClassifierOutput]:
     r"""
-    labels (`torch.LongTensor` of shape `(batch_size, hidden_size, num_labels)`,
+    labels (`torch.LongTensor` of shape `(batch_size, target_length, num_labels)`,
         *optional*):
         Onehot labels for computing the frame classification loss.
     """
 
-    return_dict = (
-      return_dict if return_dict is not None else self.config.use_return_dict
-    )
+    # input_values: [batch_size, num_channels, seq_len]
+    input_seq_length = input_values.shape[-1]
 
     output_hidden_states = (
-      True if self.config.use_weighted_layer_sum else output_hidden_states
+      True if self.config.use_weighted_layer_sum else False
     )
 
     outputs = self.wav2vec2(
         input_values,
-        attention_mask=attention_mask,
-        output_attentions=output_attentions,
+        attention_mask=None,
+        output_attentions=None,
         output_hidden_states=output_hidden_states,
-        return_dict=return_dict,
+        return_dict=self.config.use_return_dict,
     )
 
 
@@ -229,28 +227,28 @@ class MultiDimWav2Vec2ForFrameClassification(
     else:
       hidden_states = outputs[0]
 
-    logits = self.classifier(hidden_states)
-    # The logits: [batch_size, seq_len, num_labels]
-
-    loss = None
-
-    if labels is not None:
-      reshaped_label = torch.argmax(labels.view(-1, self.num_labels), axis=1)
-      reshaped_logits = logits.view(-1, self.num_labels)
-
-      loss_fct = torch.nn.CrossEntropyLoss()
-      loss = loss_fct(
-        reshaped_logits,
-        reshaped_label
+    # If seq_length of hidden_states and labels are not the same, we need to
+    # interpolate the hidden_states to match the labels.
+    if (hidden_states.shape[1] != input_seq_length):
+      # change to [batch_size, hidden_size, seq_len]
+      hidden_states = einops.rearrange(hidden_states, 'b l d -> b d l')
+      hidden_states = torch.nn.functional.interpolate(
+        hidden_states, size=input_seq_length,
+        mode='linear', align_corners=False
       )
+      hidden_states = einops.rearrange(hidden_states, 'b d l -> b l d')
 
-    if not return_dict:
-      output = (logits,) + outputs[_HIDDEN_STATES_START_POSITION:]
-      return output
+    # Concatenate the hidden_states with the input_values
 
-    return TokenClassifierOutput(
-        loss=loss,
-        logits=logits,
-        hidden_states=outputs.hidden_states,
-        attentions=outputs.attentions,
-    )
+    hidden_states = torch.cat(
+      [hidden_states,
+       einops.rearrange(input_values, 'b d l -> b l d')], dim=-1)
+
+    # logits: [batch_size, seq_len, num_classes]
+    logits = self.classifier(hidden_states)
+
+    # logits: [batch_size, num_classes, seq_len]
+    logits = einops.rearrange(logits, 'b l c -> b c l')
+
+    # softmax over the classes
+    return torch.nn.functional.softmax(logits, dim=1)

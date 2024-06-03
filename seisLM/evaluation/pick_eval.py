@@ -55,16 +55,25 @@ def _identify_instance_dataset_border(task_targets):
 
 
 def save_pick_predictions(
-  data_name, model_name, targets, sets, batchsize=1024, num_workers=4,
+  checkpoint_path_or_data_name, model_name, targets, sets, batchsize=1024, num_workers=4,
   sampling_rate=None):
   targets = Path(targets)
   sets = sets.split(",")
 
-  model = supervised_models.__getattribute__(model_name + "Lit")()
-  model.model = sbm.__getattribute__(model_name).from_pretrained(data_name)
-  print(model.model.weights_docstring)
+  model_cls = supervised_models.__getattribute__(model_name + "Lit")
+  if 'ckpt' in checkpoint_path_or_data_name:
+    # In case of a checkpoint, load the model from the checkpoint
+    model = model_cls.load_from_checkpoint(checkpoint_path_or_data_name)
+  else:
+    # In case of a data name, load the model from the pretrained model
+    # TODO: This won't work if the model takes positional argument.
+    model = model_cls()
+    model.model = sbm.__getattribute__(model_name).from_pretrained(
+      checkpoint_path_or_data_name
+    )
+    print(model.model.weights_docstring)
 
-  dataset = get_dataset_by_name(data_aliases[data_name])(
+  dataset = get_dataset_by_name(data_aliases[targets.name])(
       sampling_rate=100, component_order="ZNE", dimension_order="NCW",
       cache="full"
   )
@@ -151,7 +160,7 @@ def save_pick_predictions(
       pred_path = (
         Path(gitdir())
         / "evaluation_results"
-        / f"{model_name}_{data_name}"
+        / f"{model_name}_{targets.name}"
         / f"{eval_set}_task{task}.csv"
       )
       pred_path.parent.mkdir(exist_ok=True, parents=True)

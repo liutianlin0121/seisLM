@@ -13,13 +13,15 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from abc import abstractmethod, ABC
-
+from transformers import Wav2Vec2Config
+from seisLM.model import lit_model
 # Allows to import this file in both jupyter notebook and code
 try:
     from .augmentations import DuplicateEvent
 except ImportError:
     from augmentations import DuplicateEvent
 
+from seisLM.model.multidim_wav2vec2 import MultiDimWav2Vec2ForFrameClassification
 
 # Phase dict for labelling. We only study P and S phases without differentiating between them.
 phase_dict = {
@@ -152,7 +154,7 @@ class PhaseNetLit(SeisBenchModuleLit):
 
     def validation_step(self, batch, batch_idx):
         loss = self.shared_step(batch)
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, sync_dist=True)
         return loss
 
     def configure_optimizers(self):
@@ -268,7 +270,7 @@ class GPDLit(SeisBenchModuleLit):
 
     def validation_step(self, batch, batch_idx):
         loss = self.shared_step(batch)
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, sync_dist=True)
         return loss
 
     def configure_optimizers(self):
@@ -433,7 +435,7 @@ class EQTransformerLit(SeisBenchModuleLit):
 
     def validation_step(self, batch, batch_idx):
         loss = self.shared_step(batch)
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, sync_dist=True)
         return loss
 
     def configure_optimizers(self):
@@ -614,7 +616,7 @@ class CREDLit(SeisBenchModuleLit):
 
     def validation_step(self, batch, batch_idx):
         loss = self.shared_step(batch)
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, sync_dist=True)
         return loss
 
     def configure_optimizers(self):
@@ -751,7 +753,7 @@ class BasicPhaseAELit(SeisBenchModuleLit):
 
     def validation_step(self, batch, batch_idx):
         loss = self.shared_step(batch)
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, sync_dist=True)
         return loss
 
     def configure_optimizers(self):
@@ -879,7 +881,7 @@ class DPPDetectorLit(SeisBenchModuleLit):
 
     def validation_step(self, batch, batch_idx):
         loss = self.shared_step(batch)
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, sync_dist=True)
         return loss
 
     def configure_optimizers(self):
@@ -1002,7 +1004,7 @@ class DPPPickerLit(SeisBenchModuleLit):
 
     def validation_step(self, batch, batch_idx):
         loss = self.shared_step(batch)
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, sync_dist=True)
         return loss
 
     def configure_optimizers(self):
@@ -1065,3 +1067,51 @@ class DPPPickerLit(SeisBenchModuleLit):
                 raise ValueError(f"Unknown mode {self.mode}")
 
         return score_detection, score_p_or_s, p_sample, s_sample
+
+
+class MultiDimWav2Vec2ForFrameClassificationLit(PhaseNetLit):
+    """
+    LightningModule for PhaseNet
+
+    :param lr: Learning rate, defaults to 1e-2
+    :param sigma: Standard deviation passed to the ProbabilisticPickLabeller
+    :param sample_boundaries: Low and high boundaries for the RandomWindow selection.
+    :param kwargs: Kwargs are passed to the SeisBench.models.PhaseNet constructor.
+    """
+
+    def __init__(self, model_name_or_path, lr=1e-2, sigma=20,
+                 sample_boundaries=(None, None), **kwargs):
+        super().__init__(
+            lr=lr, sigma=sigma, sample_boundaries=sample_boundaries, **kwargs
+        )
+        self.save_hyperparameters()
+        self.model_name_or_path = model_name_or_path
+        pretrained_model = lit_model.LitMultiDimWav2Vec2.load_from_checkpoint(
+            model_name_or_path
+        ).model
+
+        model_config = pretrained_model.config
+        # model_config = Wav2Vec2Config.from_pretrained(model_name_or_path)
+        # model_config.input_dim = 3
+        # model_config.conv_dim = [256, 256]
+        # model_config.conv_kernel = [3, 3]
+        # model_config.conv_stride = [2, 2]
+        # model_config.hidden_size = 240
+        # model_config.num_hidden_layers = 6
+        # model_config.num_feat_extract_layers = len(model_config.conv_dim)
+
+        model_config.num_labels = 3
+
+        self.model = MultiDimWav2Vec2ForFrameClassification(model_config)
+
+        self.model.wav2vec2.load_state_dict(
+            pretrained_model.wav2vec2.state_dict()
+        )
+        # self.model.freeze_base_model()
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, self.parameters()),
+            lr=self.lr
+        )
+        return optimizer

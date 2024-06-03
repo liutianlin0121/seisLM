@@ -1,0 +1,15 @@
+{
+  "model": "MultiDimWav2Vec2ForFrameClassification",
+  "freeze_wav2vec_backbone_epochs": null,
+  "batch_size": 32,
+  "data": "ETHZ",
+  "trainer_args": {
+    "gpus": 1,
+    "max_epochs": 100
+  },
+  "model_args": {
+    "sample_boundaries": [null, null],
+    "lr": 2e-4,
+    "model_name_or_path": "/home/liu0003/Desktop/projects/seisLM/saved_models/seisLM/42__2024-05-26-17h-04m-04s/checkpoints/epoch=3-step=218924.ckpt"
+  }
+}

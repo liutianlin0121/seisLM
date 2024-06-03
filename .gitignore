@@ -7,3 +7,5 @@ targets/
 wandb/
 saved_models/
 figs/
+weights/
+tb_logs/
