@@ -3,20 +3,8 @@ from typing import Optional, Dict
 from dataclasses import dataclass
 import torch
 import numpy as np
-import einops
 from transformers import Wav2Vec2ForPreTraining
 from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices, _sample_negative_indices
-
-# root mean square layer normalization
-def root_mean_square_norm(x, eps=1e-5):
-  output = x / torch.sqrt((x * x).mean(1)[:,None] + eps)
-  return output
-
-# layer normalization
-def layer_norm(x, eps=1e-5):
-  output = (x - x.mean(1)[:,None]) / torch.sqrt((x.var(1)[:,None] + eps))
-  return output
-
 
 @dataclass
 class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:

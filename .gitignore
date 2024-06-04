@@ -5,7 +5,7 @@ evaluation_results/
 targets/
 .DS_Store
 wandb/
-saved_models/
+results/
 figs/
 weights/
 tb_logs/
