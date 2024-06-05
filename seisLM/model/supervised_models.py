@@ -9,7 +9,7 @@ from abc import abstractmethod, ABC
 import seisbench.models as sbm
 import seisbench.generate as sbg
 
-import pytorch_lightning as pl
+import lightning as L
 import torch
 import numpy as np
 # from transformers import Wav2Vec2Config
@@ -39,7 +39,7 @@ def vector_cross_entropy(y_pred, y_true, eps=1e-5):
   return -h
 
 
-class SeisBenchModuleLit(pl.LightningModule, ABC):
+class SeisBenchModuleLit(L.LightningModule, ABC):
   """
   Abstract interface for SeisBench lightning modules.
   Adds generic function, e.g., get_augmentations
@@ -228,15 +228,6 @@ class MultiDimWav2Vec2ForFrameClassificationLit(PhaseNetLit):
     ).model
 
     model_config = pretrained_model.config
-    # model_config = Wav2Vec2Config.from_pretrained(model_name_or_path)
-    # model_config.input_dim = 3
-    # model_config.conv_dim = [256, 256]
-    # model_config.conv_kernel = [3, 3]
-    # model_config.conv_stride = [2, 2]
-    # model_config.hidden_size = 240
-    # model_config.num_hidden_layers = 6
-    # model_config.num_feat_extract_layers = len(model_config.conv_dim)
-
     model_config.num_labels = 3
 
     self.model = MultiDimWav2Vec2ForFrameClassification(model_config)
@@ -245,6 +236,7 @@ class MultiDimWav2Vec2ForFrameClassificationLit(PhaseNetLit):
         pretrained_model.wav2vec2.state_dict()
     )
     # self.model.freeze_base_model()
+    self.model.freeze_feature_extractor()
 
   def configure_optimizers(self):
     optimizer = torch.optim.Adam(

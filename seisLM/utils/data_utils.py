@@ -1,4 +1,5 @@
 ''' This file contains the parameters for the seisbench dataset. '''
+import seisbench.data as sbd
 
 # Phase dict for labelling. We only study P and S phases
 # without differentiating between them.
@@ -19,3 +20,5 @@ phase_dict = {
     "trace_SmS_arrival_sample": "S",
     "trace_Sn_arrival_sample": "S",
 }
+
+

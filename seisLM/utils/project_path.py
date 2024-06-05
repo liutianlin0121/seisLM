@@ -17,3 +17,20 @@ def gitdir() -> str:
   git_repo = git.Repo(os.getcwd(), search_parent_directories=True)
   git_root = git_repo.git.rev_parse('--show-toplevel')
   return git_root
+
+def create_folder_if_not_exists(path):
+  """
+  This function checks if a folder exists at the given path.
+  If it doesn't exist, it creates the folder.
+
+  Args:
+      path: The path to the folder to check and potentially create.
+  """
+  if not os.path.exists(path):
+    try:
+      os.makedirs(path)
+      print(f"Folder created: {path}")
+    except OSError as error:
+      print(f"Error creating folder: {error}")
+
+MODEL_SAVE_DIR = os.path.join(gitdir(), 'results/models')
