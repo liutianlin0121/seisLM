@@ -21,15 +21,15 @@ model_config_path = project_path.gitdir(
 model_config = Wav2Vec2Config.from_pretrained(model_config_path)
 
 training_config = config_dict.ConfigDict()
-training_config.data_name = 'ETHZ' # TODO: enable multiple datasets
+training_config.data_name = ['ETHZ', 'GEOFON', 'STEAD', 'NEIC']
 training_config.mask_time_prob = 0.65
 training_config.mask_time_length = 10
-training_config.global_batch_size = 8
+training_config.global_batch_size = 24 #32
 training_config.seed = 42
 training_config.warmup_frac_step = 0.2
 training_config.learning_rate = 1e-4
 training_config.weight_decay = 1e-4
-training_config.num_train_epochs = 100
+training_config.num_train_epochs = 20 # 100
 training_config.adam_beta1 = 0.9
 training_config.adam_beta2 = 0.999
 training_config.adam_epsilon = 1e-8
@@ -37,11 +37,11 @@ training_config.max_gumbel_temperature = 2.0
 training_config.min_gumbel_temperature = 0.5
 training_config.log_every_n_steps = 100
 training_config.logger_project_name = 'pretrained_seisLM'
-training_config.num_workers = 8
+training_config.num_workers = 4
 training_config.model_save_dir = \
   '/home/liu0003/Desktop/projects/seisLM/results/models'
 training_config.precision = "32"
-training_config.gpu_devices = [0, 1]
+training_config.devices = 8 # [0, 1]
 seed_everything(training_config.seed)
 
 
@@ -102,7 +102,7 @@ trainer = L.Trainer(
     profiler='simple',
     logger=logger,
     log_every_n_steps=training_config.log_every_n_steps,
-    devices=training_config.gpu_devices,
+    devices=training_config.devices,
     accelerator='gpu',
     strategy='ddp',
     max_epochs=training_config.num_train_epochs,

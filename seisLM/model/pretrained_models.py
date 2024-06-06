@@ -143,18 +143,28 @@ class LitMultiDimWav2Vec2(L.LightningModule):
         # of noise traces in training. Uses strategy variable, as padding will
         # be handled by the random window. In 1/3 of the cases, just returns
         # the original trace, to keep diversity high.
-        sbg.OneOf(
-            [
-                sbg.WindowAroundSample(
-                    list(phase_dict.keys()),
-                    samples_before=3000,
-                    windowlen=6000,
-                    selection="random",
-                    strategy="variable",
-                ),
-                sbg.NullAugmentation(),
-            ],
-            probabilities=[2, 1],
+        # sbg.OneOf(
+        #     [
+        #         sbg.WindowAroundSample(
+        #             list(phase_dict.keys()),
+        #             samples_before=3000,
+        #             windowlen=6000,
+        #             selection="random",
+        #             strategy="variable",
+        #         ),
+        #         sbg.NullAugmentation(),
+        #     ],
+        #     probabilities=[2, 1],
+        # ),
+
+        # Select windows around picks to reduce the amount of noise traces in
+        # training.
+        sbg.WindowAroundSample(
+            list(phase_dict.keys()),
+            samples_before=3000,
+            windowlen=6000,
+            selection="random",
+            strategy="variable",
         ),
         sbg.RandomWindow(
             low=None,

@@ -1,11 +1,10 @@
 .ipynb_checkpoints/
 *.pyc
 __pycache__/
-evaluation_results/
-targets/
 .DS_Store
 wandb/
 results/
 figs/
-weights/
-tb_logs/
+*.egg-info/
+*.swp
+*.out
