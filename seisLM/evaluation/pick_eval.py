@@ -8,12 +8,13 @@ import logging
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-import pytorch_lightning as pl
+# import pytorch_lightning as pl
+import lightning as L
 import seisbench.data as sbd
 import seisbench.generate as sbg
 import seisbench.models as sbm
 from seisLM.model import supervised_models
-from seisLM.utils.project_path import gitdir
+from seisLM.utils import project_path
 
 data_aliases = {
     "ethz": "ETHZ",
@@ -60,6 +61,10 @@ def save_pick_predictions(
   targets = Path(targets)
   sets = sets.split(",")
 
+
+  torch.backends.cudnn.benchmark = True
+  torch.backends.cudnn.deterministic = True
+
   model_cls = supervised_models.__getattribute__(model_name + "Lit")
   if 'ckpt' in checkpoint_path_or_data_name:
     # In case of a checkpoint, load the model from the checkpoint
@@ -101,6 +106,7 @@ def save_pick_predictions(
     split.preload_waveforms(pbar=True)
 
     for task in ["1", "23"]:
+
       task_csv = targets / f"task{task}.csv"
 
       if not task_csv.is_file():
@@ -110,6 +116,7 @@ def save_pick_predictions(
 
       task_targets = pd.read_csv(task_csv)
       task_targets = task_targets[task_targets["trace_split"] == eval_set]
+
       if task == "1" and targets.name == "instance":
         border = _identify_instance_dataset_border(task_targets)
         task_targets["trace_name"].values[border:] = task_targets["trace_name"][
@@ -133,12 +140,13 @@ def save_pick_predictions(
       loader = DataLoader(
         generator, batch_size=batchsize, shuffle=False, num_workers=num_workers
       )
-      trainer = pl.Trainer(
+      trainer = L.Trainer(
         accelerator="gpu",
         devices=1,
         logger=False,            # Disable the default logger
         enable_checkpointing=False  # Disable automatic checkpointing
       )
+
 
       predictions = trainer.predict(model, loader)
 
@@ -157,14 +165,13 @@ def save_pick_predictions(
           merged_predictions[3] + task_targets["start_sample"]
       )
 
+
       pred_path = (
-        Path(gitdir())
-        / "evaluation_results"
+        Path(project_path.EVAL_SAVE_DIR)
         / f"{model_name}_{targets.name}"
         / f"{eval_set}_task{task}.csv"
       )
       pred_path.parent.mkdir(exist_ok=True, parents=True)
       # pred_path = f'./{eval_set}_task{task}.csv'
       task_targets.to_csv(pred_path, index=False)
-      print(f'saved to {pred_path}')
 
