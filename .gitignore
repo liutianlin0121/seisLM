@@ -12,3 +12,4 @@ figs/
 # Ignore Slurm output and error files
 seisLM_pretrain.e*
 seisLM_pretrain.o*
+core.*

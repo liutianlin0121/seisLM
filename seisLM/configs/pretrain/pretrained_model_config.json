@@ -28,7 +28,7 @@
   ],
   "ctc_loss_reduction": "sum",
   "ctc_zero_infinity": false,
-  "diversity_loss_weight": 0.3,
+  "diversity_loss_weight": 0.1,
   "do_stable_layer_norm": true,
   "eos_token_id": 2,
   "feat_extract_activation": "gelu",
