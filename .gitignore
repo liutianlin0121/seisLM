@@ -2,6 +2,7 @@
 *.pyc
 __pycache__/
 .DS_Store
+data/
 wandb/
 results/
 figs/
