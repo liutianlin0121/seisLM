@@ -14,6 +14,5 @@ source ~/anaconda3/etc/profile.d/conda.sh
 
 conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench 
 
-python3 pretrain_run.py
-
+python3 finetune_run.py --config /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/finetune/ethz_seisLM.json
 
