@@ -1,10 +1,9 @@
 """ Dataloaders for SeisBench datasets. """
-
 import logging
 import numpy as np
 import seisbench.generate as sbg
-from torch.utils.data import DataLoader, ConcatDataset
 import seisbench.data as sbd
+from torch.utils.data import DataLoader, ConcatDataset
 from seisbench.util import worker_seeding
 
 def get_dataset_by_name(name):

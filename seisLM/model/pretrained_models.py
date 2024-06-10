@@ -7,6 +7,7 @@ import lightning as L
 import seisbench.generate as sbg
 from seisLM.model.multidim_wav2vec2 import MultiDimWav2Vec2ForPreTraining
 from seisLM.utils.data_utils import phase_dict
+from seisLM.data_pipeline import augmentations
 
 class LitMultiDimWav2Vec2(L.LightningModule):
   """LightningModule for Wav2Vec2 model."""
@@ -139,24 +140,6 @@ class LitMultiDimWav2Vec2(L.LightningModule):
 
   def get_train_augmentations(self):
     return [
-        # In 2/3 of the cases, select windows around picks, to reduce amount
-        # of noise traces in training. Uses strategy variable, as padding will
-        # be handled by the random window. In 1/3 of the cases, just returns
-        # the original trace, to keep diversity high.
-        # sbg.OneOf(
-        #     [
-        #         sbg.WindowAroundSample(
-        #             list(phase_dict.keys()),
-        #             samples_before=3000,
-        #             windowlen=6000,
-        #             selection="random",
-        #             strategy="variable",
-        #         ),
-        #         sbg.NullAugmentation(),
-        #     ],
-        #     probabilities=[2, 1],
-        # ),
-
         # Select windows around picks to reduce the amount of noise traces in
         # training.
         sbg.WindowAroundSample(
@@ -174,6 +157,9 @@ class LitMultiDimWav2Vec2(L.LightningModule):
         ),
         sbg.ChangeDtype(np.float32),
         sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
+        # augmentations.RMSNorm(rms_axis=1)
+        # Assuming that the component order is NCW, we normalize over 'W'.
+        # The first 'N' axis is ignore because we normalize at each sample.
     ]
 
   def get_val_augmentations(self):
