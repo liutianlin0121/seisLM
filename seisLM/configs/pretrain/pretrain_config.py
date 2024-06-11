@@ -8,7 +8,7 @@ def get_training_config():
     config.data_name = ['ETHZ', 'GEOFON', 'STEAD', 'NEIC']
     config.mask_time_prob = 0.65
     config.mask_time_length = 10
-    config.global_batch_size = 16
+    config.global_batch_size = 4 #16
     config.seed = 42
     config.warmup_frac_step = 0.2
     config.learning_rate = 1e-4

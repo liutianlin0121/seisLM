@@ -1,13 +1,10 @@
 """Training of earthquake language model."""
 import time
-import os
-from ml_collections import config_dict
 import lightning as L
 import torch
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import WandbLogger
-from transformers import Wav2Vec2Config
 from seisLM.model.pretrained_models import LitMultiDimWav2Vec2
 from seisLM.data_pipeline import collator
 from seisLM.utils import project_path
