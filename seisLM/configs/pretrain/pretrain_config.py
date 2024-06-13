@@ -25,7 +25,7 @@ def get_training_config():
     config.model_save_dir = project_path.MODEL_SAVE_DIR
     config.precision = "32"
     config.devices = 4
-    
+
     project_path.create_folder_if_not_exists(config.model_save_dir)
     return config
 

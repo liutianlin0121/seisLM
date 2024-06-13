@@ -1,11 +1,11 @@
 {
   "pylint.args": [
-      "--rcfile=/scicore/home/dokman0000/liu0003/projects/seisLM/.pylintrc",
+      "--rcfile=/home/liu0003/Desktop/projects/seisLM/.pylintrc",
       "--disable=W0221, W0613, E0015, W0621, C0103",
       "--generated-members",
       "torch.*"
   ],
   "editor.formatOnSave": false,
-  "python.linting.pylintEnabled": true,
-  "python.linting.enabled": true,
+  // "python.linting.pylintEnabled": true,
+  // "python.linting.enabled": true,
 }
