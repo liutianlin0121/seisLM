@@ -9,7 +9,7 @@ figs/
 *.egg-info/
 *.swp
 *.out
-
+.vscode/
 # Ignore Slurm output and error files
 *.e*
 *.o*
