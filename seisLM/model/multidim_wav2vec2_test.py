@@ -62,19 +62,11 @@ for model_name in MODEL_NAMES:
 for name in MODEL_NAMES:
   new_output = model_output[f'{name}_new']
   ref_output = model_output[f'{name}_ref']
-  np.testing.assert_allclose(
-    new_output.projected_quantized_states,
-    ref_output.projected_quantized_states
-  )
-  np.testing.assert_allclose(
-    new_output.projected_quantized_states,
-    ref_output.projected_quantized_states
-  )
-  np.testing.assert_allclose(
-    new_output.loss,
-    ref_output.loss
-  )
-  np.testing.assert_allclose(
-    new_output.codevector_perplexity,
-    ref_output.codevector_perplexity
-  )
+
+  for field in ref_output:
+    value1 = getattr(new_output, field)
+    value2 = getattr(ref_output, field)
+    print('passed: ', field)
+    assert np.allclose(value1.cpu().numpy(), value2.cpu().numpy())
+
+  print(f'mode_train={model.training}: all fields are equal!')
