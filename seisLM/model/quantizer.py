@@ -4,6 +4,32 @@ from torch import nn
 import torch
 
 
+def log_sinkhorn(log_alpha, n_iter):
+  """Performs incomplete Sinkhorn normalization to log_alpha.
+  By a theorem by Sinkhorn and Knopp [1], a sufficiently well-behaved  matrix
+  with positive entries can be turned into a doubly-stochastic matrix
+  (i.e. its rows and columns add up to one) via the successive row and column
+  normalization.
+
+  [1] Sinkhorn, Richard and Knopp, Paul.
+  Concerning nonnegative matrices and doubly stochastic
+  matrices. Pacific Journal of Mathematics, 1967
+  Args:
+    log_alpha: 2D tensor (a matrix of shape [N, N])
+      or 3D tensor (a batch of matrices of shape = [batch_size, N, N])
+    n_iters: number of sinkhorn iterations (in practice, as little as 20
+      iterations are needed to achieve decent convergence for N~100)
+  Returns:
+    A 3D tensor of close-to-doubly-stochastic matrices (2D tensors are
+      converted to 3D tensors with batch_size equals to 1)
+  """
+  for _ in range(n_iter):
+    log_alpha = log_alpha - torch.logsumexp(log_alpha, -1, keepdim=True)
+    log_alpha = log_alpha - torch.logsumexp(log_alpha, -2, keepdim=True)
+  return log_alpha.exp()
+
+
+
 class Wav2Vec2GumbelVectorQuantizer(nn.Module):
   """
   Vector quantization using gumbel softmax.
@@ -43,6 +69,13 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
 
     # can be decayed for training
     self.temperature = 2
+    self.sinkhorn_quantization_iters = getattr(
+      config, 'sinkhorn_quantization_iters', 0
+    )
+
+    self.straight_through_sinkhorn = getattr(
+      config, 'straight_through_sinkhorn', False
+    )
 
   @staticmethod
   def _compute_perplexity(probs, mask=None):
@@ -84,6 +117,18 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
       g=self.num_groups
     )
 
+    if self.sinkhorn_quantization_iters > 0:
+
+      hidden_states_ = log_sinkhorn(
+        hidden_states, self.sinkhorn_quantization_iters
+      )
+      if self.straight_through_sinkhorn:
+        hidden_states = hidden_states_.detach() + (
+          hidden_states - hidden_states.detach()
+        )
+      else:
+        hidden_states = hidden_states_
+
     if self.training:
       # sample code vector probs via gumbel in differentiateable way
       # codevector_probs: [B * L * G, V]
@@ -103,7 +148,7 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
     else:
       # take argmax in non-differentiable way
       # comptute hard codevector distribution (one hot)
-      # codevector_idx: [B * L, 1]
+      # codevector_idx: [B * L * G, 1]
       codevector_idx = hidden_states.argmax(dim=-1, keepdim=True)
 
       # codevector_probs: [B * L * G, V]
