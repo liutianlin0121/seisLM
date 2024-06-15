@@ -92,6 +92,7 @@ def train(config, experiment_name):
 if __name__ == "__main__":
   torch.backends.cudnn.benchmark = True
   torch.backends.cudnn.deterministic = True
+  torch.set_float32_matmul_precision('high')
 
   parser = argparse.ArgumentParser()
   parser.add_argument("--config", type=str, required=True)

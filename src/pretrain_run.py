@@ -1,23 +1,22 @@
 """Training of earthquake language model."""
+import argparse
+import json
 import time
+import os
+from ml_collections import config_dict
 import lightning as L
 import torch
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import WandbLogger
+from transformers import Wav2Vec2Config
 from seisLM.model.pretrained_models import LitMultiDimWav2Vec2
 from seisLM.data_pipeline import collator
-from seisLM.utils import project_path
 from seisLM.data_pipeline import dataloaders
-from seisLM.configs.pretrain import pretrain_config
+from seisLM.utils import project_path
 
 
-torch.backends.cudnn.benchmark = True
-torch.backends.cudnn.deterministic = True
-
-def main():
-  model_config = pretrain_config.get_model_config()
-  training_config = pretrain_config.get_training_config()
+def train(model_config, training_config, experiment_name):
 
   seed_everything(training_config.seed)
   model = LitMultiDimWav2Vec2(model_config, training_config)
@@ -55,13 +54,14 @@ def main():
   formatted_time = time.strftime(
     "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
   )
-  run_name = f"{training_config.seed}__{formatted_time}"
+  run_name = f"{training_config.seed}__{formatted_time}" + '_' + experiment_name
 
   logger = WandbLogger(
-      project=training_config.logger_project_name,
+      project='pretrained_seisLM',
       save_dir=project_path.MODEL_SAVE_DIR,
       name=run_name,
       id=run_name,
+      save_code=True,
   )
 
   logger.log_hyperparams(model.hparams)
@@ -88,4 +88,21 @@ def main():
   )
 
 if __name__ == '__main__':
-    main()
+  torch.backends.cudnn.benchmark = True
+  torch.backends.cudnn.deterministic = True
+  torch.set_float32_matmul_precision('medium')
+
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--model_config_path", type=str, required=True)
+  parser.add_argument("--training_config_path", type=str, required=True)
+  args = parser.parse_args()
+
+  model_config = Wav2Vec2Config.from_pretrained(args.model_config_path)
+
+  with open(args.training_config_path, "r", encoding="utf-8") as f:
+    training_config = json.load(f)
+  training_config = config_dict.ConfigDict(training_config)
+
+
+  experiment_name = os.path.basename(args.model_config_path)[:-5]
+  train(model_config, training_config, experiment_name)

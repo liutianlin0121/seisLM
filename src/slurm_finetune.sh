@@ -1,4 +1,4 @@
-#!/bin/bash     
+#!/bin/bash
 
 #SBATCH --job-name=seisLM_finetune     #Name of your job
 #SBATCH --cpus-per-task=8    #Number of cores to reserve
@@ -12,7 +12,7 @@
 
 source ~/anaconda3/etc/profile.d/conda.sh
 
-conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench 
+conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench
 
-python3 finetune_run.py --config /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/finetune/ethz_seisLM.json
+srun python3 finetune_run.py --config /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/finetune/ethz_seisLM.json
 
