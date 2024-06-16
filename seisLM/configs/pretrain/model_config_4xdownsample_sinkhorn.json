@@ -65,8 +65,8 @@
   "output_hidden_size": 768,
   "pad_token_id": 0,
   "proj_codevector_dim": 256,
-  "sinkhorn_quantization_iters": 1,
-  "straight_through_sinkhorn": true,
+  "sinkhorn_quantization_iters": 5,
+  "straight_through_sinkhorn": false,
   "tdnn_dilation": [
     1,
     2,

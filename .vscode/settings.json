@@ -1,7 +1,7 @@
 {
   "pylint.args": [
       "--rcfile=/scicore/home/dokman0000/liu0003/projects/seisLM/.pylintrc",
-      "--disable=W0221, W0613, E0015, W0621, C0103, E1120",
+      "--disable=W0221, W0613, E0015, W0621, C0103, E1120, E1102",
       "--generated-members",
       "torch.*"
   ],

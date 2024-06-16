@@ -9,8 +9,8 @@
     "NEIC"
   ],
   "devices": 4,
-  "global_batch_size": 32,
-  "learning_rate": 0.001,
+  "global_batch_size": 16,
+  "learning_rate": 0.0001,
   "log_every_n_steps": 100,
   "mask_time_length": 10,
   "mask_time_prob": 0.65,
