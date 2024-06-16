@@ -90,7 +90,7 @@ def train(model_config, training_config, experiment_name):
 if __name__ == '__main__':
   torch.backends.cudnn.benchmark = True
   torch.backends.cudnn.deterministic = True
-  torch.set_float32_matmul_precision('medium')
+  torch.set_float32_matmul_precision('high')
 
   parser = argparse.ArgumentParser()
   parser.add_argument("--model_config_path", type=str, required=True)
