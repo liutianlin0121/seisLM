@@ -96,21 +96,28 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
     if self.training:
       # sample code vector probs via gumbel in differentiateable way
       # codevector_probs: [B * L * G, V]
+
+      # split out the group variable
+      hidden_states = einops.rearrange(
+        hidden_states,
+        '(b l g) v -> (b l) g v',
+        b=batch_size,
+        l=sequence_length,
+        g=self.num_groups
+      )
+
+      # codevector_probs: [B * L, G, V]
       codevector_probs = gumbel_softmax(
           hidden_states.float(), tau=self.temperature, hard=True,
-          num_sinkhorn_iters=self.sinkhorn_quantization_iters
+          num_sinkhorn_iters=self.sinkhorn_quantization_iters,
+          sinkhorn_dims=[2, 0],
       ).type_as(hidden_states)
 
-      # print('codevector_probs.shape', codevector_probs.shape)
-      # print('codevector_probs.sum(0)', codevector_probs.sum(0))
-      # print('codevector_probs.sum(1)', codevector_probs.sum(1))
 
       # compute perplexity
-      # codevector_probs: [B * L, G, V]
-      codevector_soft_dist = torch.softmax(
-          hidden_states.view(
-            batch_size * sequence_length, self.num_groups, -1).float(), dim=-1
-      )
+      # codevector_soft_dist: [B * L, G, V]
+      codevector_soft_dist = torch.softmax(hidden_states.float(), dim=-1)
+
       perplexity = self._compute_perplexity(
         codevector_soft_dist, mask_time_indices
       )
@@ -136,8 +143,18 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
 
       perplexity = self._compute_perplexity(codevector_probs, mask_time_indices)
 
+    # print('codevector_probs.shape [B * L, G, V]:', codevector_probs.shape)
+    # print('codevector_probs sum over B*L', codevector_probs.sum(0))
+    # print('codevector_probs over V', codevector_probs.sum(2))
+
     # codevector_probs: [B * L, G * V]
-    codevector_probs = codevector_probs.view(batch_size * sequence_length, -1)
+    # codevector_probs = codevector_probs.view(batch_size * sequence_length, -1)
+    codevector_probs = einops.rearrange(
+      codevector_probs, '(b l) g v -> (b l) (g v)',
+      b=batch_size,
+      l=sequence_length,
+      g=self.num_groups
+    )
 
     # use probs to retrieve codevectors
     # codevectors_per_group: [B * L, G * V, codevector_dim // G]

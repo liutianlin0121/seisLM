@@ -8,7 +8,7 @@ Tensor = torch.Tensor
 
 
 
-def log_sinkhorn(log_alpha, n_iter):
+def log_sinkhorn(log_alpha, n_iter, dims=[-1, -2]):
   """Performs incomplete Sinkhorn normalization to log_alpha.
   By a theorem by Sinkhorn and Knopp [1], a sufficiently well-behaved  matrix
   with positive entries can be turned into a doubly-stochastic matrix
@@ -28,15 +28,16 @@ def log_sinkhorn(log_alpha, n_iter):
       converted to 3D tensors with batch_size equals to 1)
   """
   for _ in range(n_iter):
-    log_alpha = log_alpha - torch.logsumexp(log_alpha, -1, keepdim=True)
-    log_alpha = log_alpha - torch.logsumexp(log_alpha, -2, keepdim=True)
+    log_alpha = log_alpha - torch.logsumexp(log_alpha, dims[0], keepdim=True)
+    log_alpha = log_alpha - torch.logsumexp(log_alpha, dims[1], keepdim=True)
   return log_alpha.exp()
 
 
 
 def gumbel_softmax(
   logits: Tensor, tau: float = 1, hard: bool = False,
-  eps: float = 1e-10, dim: int = -1, num_sinkhorn_iters = 0) -> Tensor:
+  eps: float = 1e-10, dim: int = -1, num_sinkhorn_iters = 0,
+  sinkhorn_dims=[-1, -2]) -> Tensor:
   r"""
   Sample from the Gumbel-Softmax distribution (`Link 1`_  `Link 2`_)
   and optionally discretize.
@@ -91,7 +92,7 @@ def gumbel_softmax(
   gumbels = (logits + gumbels) / tau  # ~Gumbel(logits,tau)
 
   if num_sinkhorn_iters > 0:
-    y_soft = log_sinkhorn(gumbels, num_sinkhorn_iters)
+    y_soft = log_sinkhorn(gumbels, num_sinkhorn_iters, sinkhorn_dims)
   else:
     y_soft = gumbels.softmax(dim)
 
