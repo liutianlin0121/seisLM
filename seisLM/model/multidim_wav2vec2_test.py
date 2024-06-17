@@ -16,7 +16,7 @@ input_values = torch.Tensor(waveforms[0]).unsqueeze(0)
 
 MODEL_NAMES = ["patrickvonplaten/wav2vec2-base-v2", "facebook/wav2vec2-base"]
 
-for eval in [True, False]:
+for evaluate in [True, False]:
   model_output = {}
   for model_name in MODEL_NAMES:
     config = Wav2Vec2Config.from_pretrained(model_name)
@@ -31,7 +31,7 @@ for eval in [True, False]:
         model.load_state_dict(ref_model.state_dict())
         del ref_model
 
-      if eval:
+      if evaluate:
         model.eval()
       else:
         model.train()

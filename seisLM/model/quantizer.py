@@ -1,4 +1,5 @@
 "Quantization module"
+import math
 import einops
 from torch import nn
 import torch
@@ -47,11 +48,9 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
       config, 'sinkhorn_quantization_iters', 0
     )
 
-    self.straight_through_sinkhorn = getattr(
-      config, 'straight_through_sinkhorn', False
+    self.scale_logits_in_quantization = getattr(
+      config, 'scale_logits_in_quantization', False
     )
-
-
 
   @staticmethod
   def _compute_perplexity(probs, mask=None):
@@ -80,10 +79,22 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
     return perplexity
 
   def forward(self, hidden_states, mask_time_indices=None):
-    batch_size, sequence_length, _ = hidden_states.shape
+    batch_size, sequence_length, feature_dim = hidden_states.shape
 
+
+    # print('hidden_states.std:', hidden_states.std().item())
+    # print('weight_proj.std:', self.weight_proj.weight.std().item())
     # project to codevector dim: [B, L, G * V]
     hidden_states = self.weight_proj(hidden_states)
+    # print('hidden_states.std after weight_proj:', hidden_states.std().item())
+
+    if self.scale_logits_in_quantization:
+      hidden_states = hidden_states / math.sqrt(feature_dim)
+      # print('hidden_states.std after scaling:',
+      #       hidden_states.std().item())
+      # print('denom:', math.sqrt(feature_dim))
+
+
 
     # hidden_states: [B * L * G, V]
     hidden_states = einops.rearrange(
@@ -117,14 +128,13 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
       # compute perplexity
       # codevector_soft_dist: [B * L, G, V]
       codevector_soft_dist = torch.softmax(hidden_states.float(), dim=-1)
+      # print('codevector_soft_dict', codevector_soft_dist)
 
       perplexity = self._compute_perplexity(
         codevector_soft_dist, mask_time_indices
       )
     else:
-      # take argmax in non-differentiable way
-      # comptute hard codevector distribution (one hot)
-      # codevector_idx: [B * L * G, 1]
+
       codevector_idx = hidden_states.argmax(dim=-1, keepdim=True)
 
       # codevector_probs: [B * L * G, V]
@@ -142,10 +152,9 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
       )
 
       perplexity = self._compute_perplexity(codevector_probs, mask_time_indices)
-
     # print('codevector_probs.shape [B * L, G, V]:', codevector_probs.shape)
-    # print('codevector_probs sum over B*L', codevector_probs.sum(0))
-    # print('codevector_probs over V', codevector_probs.sum(2))
+    # print('codevector_probs sum over B*L', codevector_probs.sum(0).detach().cpu().numpy().astype(int))
+    # print('codevector_probs over V', codevector_probs.sum(2).detach().cpu().numpy().astype(int))
 
     # codevector_probs: [B * L, G * V]
     # codevector_probs = codevector_probs.view(batch_size * sequence_length, -1)
