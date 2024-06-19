@@ -19,7 +19,7 @@ def get_dataset_by_name(name):
     raise ValueError(f"Unknown dataset '{name}'.")
 
 def prepare_seisbench_dataloaders(
-  model, data_names, batch_size, num_workers, collator=None):
+  model, data_names, batch_size, num_workers, collator=None, cache=None):
   """
   Returns the training and validation data loaders
   :param config:
@@ -34,8 +34,7 @@ def prepare_seisbench_dataloaders(
   for data_name in data_names:
     dataset = get_dataset_by_name(data_name)(
       sampling_rate=100, component_order="ZNE", dimension_order="NCW",
-      # cache="full"
-      cache=None
+      cache=cache
     )
 
     if "split" not in dataset.metadata.columns:

@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=10    #Number of cores to reserve
 #SBATCH --mem-per-cpu=8G     #Amount of RAM/core to reserve
 #SBATCH --time=7-00:00:00      #Maximum allocated time
-#SBATCH --qos=1week         #Selected queue to allocate your job
+#SBATCH --qos=gpu1week         #Selected queue to allocate your job
 #SBATCH --output=seisLM_pretrain.o%j   #Path and name to the file for the STDOUT
 #SBATCH --error=seisLM_pretrain.e%j    #Path and name to the file for the STDERR
 #SBATCH --gres=gpu:4         #Number of GPUs to reserve

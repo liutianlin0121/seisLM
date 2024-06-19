@@ -12,6 +12,6 @@
   "model_args": {
     "sample_boundaries": [null, null],
     "lr": 2e-4,
-    "model_name_or_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/42__2024-06-06-19h-23m-17s/checkpoints/epoch=18-step=663879.ckpt"
+    "model_name_or_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/42__2024-06-17-07h-24m-09s_model_config_4xdownsample/checkpoints/epoch=18-step=331930.ckpt"
   }
 }

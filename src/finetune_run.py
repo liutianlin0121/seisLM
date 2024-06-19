@@ -61,6 +61,7 @@ def train(config, experiment_name):
       save_dir=project_path.MODEL_SAVE_DIR,
       name=run_name,
       id=run_name,
+      save_code=True,
   )
 
 
