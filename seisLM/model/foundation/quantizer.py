@@ -3,7 +3,7 @@ import math
 import einops
 from torch import nn
 import torch
-from seisLM.model.gumbel import gumbel_softmax
+from seisLM.model.foundation.gumbel import gumbel_softmax
 
 class Wav2Vec2GumbelVectorQuantizer(nn.Module):
   """

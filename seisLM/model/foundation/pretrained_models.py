@@ -5,7 +5,7 @@ import torch
 from torch.optim.lr_scheduler import LambdaLR
 import lightning as L
 import seisbench.generate as sbg
-from seisLM.model.multidim_wav2vec2 import MultiDimWav2Vec2ForPreTraining
+from seisLM.model.foundation.multidim_wav2vec2 import MultiDimWav2Vec2ForPreTraining
 from seisLM.utils.data_utils import phase_dict
 
 class LitMultiDimWav2Vec2(L.LightningModule):

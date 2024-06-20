@@ -7,7 +7,7 @@ import seisbench.data as sbd
 from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices, _sample_negative_indices
 from transformers import Wav2Vec2Config
 from transformers import Wav2Vec2ForPreTraining as RefWav2Vec2ForPreTraining
-from seisLM.model.multidim_wav2vec2 import MultiDimWav2Vec2ForPreTraining
+from seisLM.model.foundation.multidim_wav2vec2 import MultiDimWav2Vec2ForPreTraining
 
 data = sbd.STEAD()
 waveforms = data.get_waveforms(1265656)

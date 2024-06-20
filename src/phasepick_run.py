@@ -1,24 +1,25 @@
 """Training script for the phase picking.
 
-Simplified from:
+Adapted from:
   https://github.com/seisbench/pick-benchmark/blob/main/benchmark/train.py
-"""
 
+
+"""
 import argparse
-import json
 import os
+import json
 import time
 import torch
 import lightning as L
 from lightning.pytorch.callbacks import ModelCheckpoint
-from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch import seed_everything
 from seisLM.data_pipeline import dataloaders
-import seisLM.model.supervised_models as models
+from seisLM.model.task_specific import phasepick_models
 from seisLM.utils import project_path
 
 
-def train(config, experiment_name):
+def train_phasepick(config, task_name):
   """
   Runs the model training defined by the config.
 
@@ -38,7 +39,10 @@ def train(config, experiment_name):
   seed = config.get("seed", 42)
   seed_everything(seed)
 
-  model = models.__getattribute__(config["model"] + "Lit")(
+  model_name = config["model"]
+  training_fraction = config.get("training_fraction", 1.0)
+
+  model = phasepick_models.__getattribute__(model_name + "Lit")(
       **config.get("model_args", {})
   )
 
@@ -47,24 +51,32 @@ def train(config, experiment_name):
       data_names=config["data"],
       batch_size=config.get("batch_size", 1024),
       num_workers=config.get("num_workers", 8),
+      training_fraction=training_fraction,
+      cache=config.get("cache", 'full'),
   )
+
+
+
+  # Tensorboard logs to /save_dir/name/version/sub_dir/,
+  # Here:
+  # - `save_dir` is .../task_phase_pick/
+  # - `name` is the fraction of training samples
+  # - `version` is the model name
+  # - `sub_dir` is the seed and time
 
   formatted_time = time.strftime(
     "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
   )
-  run_name = f"{seed}__{formatted_time}"
 
-  project_path.create_folder_if_not_exists(project_path.MODEL_SAVE_DIR)
+  tensorboard_args = {
+    'save_dir': project_path.MODEL_SAVE_DIR + f'/{task_name}/',
+    'name': f"train_frac_{training_fraction}",
+    'version': f"model_{model_name}",
+    'sub_dir': f"{seed}__{formatted_time}",
+  }
 
-  logger = WandbLogger(
-      project=experiment_name,
-      save_dir=project_path.MODEL_SAVE_DIR,
-      name=run_name,
-      id=run_name,
-      save_code=True,
-  )
-
-
+  # project_path.create_folder_if_not_exists(save_dir)
+  logger = TensorBoardLogger(**tensorboard_args)
   logger.log_hyperparams(model.hparams)
   logger.log_hyperparams(config)
 
@@ -77,7 +89,8 @@ def train(config, experiment_name):
 
   callbacks = [checkpoint_callback]
 
-  # TODO: Freeze the transformer layers for the first several epochs
+  # TODO: Add the option to freeze transformer layers for several epochs.
+
   # Training loop
   trainer = L.Trainer(
       profiler="simple",
@@ -103,5 +116,5 @@ if __name__ == "__main__":
   with open(args.config, "r", encoding="utf-8") as f:
     config = json.load(f)
 
-  experiment_name = os.path.basename(args.config)[:-5]
-  train(config, experiment_name)
+  task_name = os.path.basename(__file__)[: -len(".py")]
+  train_phasepick(config, task_name)

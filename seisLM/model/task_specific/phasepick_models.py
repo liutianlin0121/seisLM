@@ -1,20 +1,31 @@
 """
-This file contains the model specifications.
+This file contains the specifications for models used for phase-picking tasks.
+
+Münchmeyer, J., Woollam, J., Rietbrock, A., Tilmann, F., Lange,
+D., Bornstein, T., et al. (2022).
+Which picker fits my data? A quantitative evaluation of deep learning based
+seismic pickers. Journal of Geophysical Research: Solid Earth, 127.
+https://doi.org/10.1029/2021JB023499
 
 Taken from:
 https://github.com/seisbench/pick-benchmark/blob/main/benchmark/models.py
 """
 
-from abc import abstractmethod, ABC
-import seisbench.models as sbm
-import seisbench.generate as sbg
+from abc import ABC, abstractmethod
+from typing import Optional, Tuple, Union
 
+import einops
 import lightning as L
-import torch
 import numpy as np
-# from transformers import Wav2Vec2Config
-from seisLM.model import pretrained_models
-from seisLM.model.multidim_wav2vec2 import MultiDimWav2Vec2ForFrameClassification
+import seisbench.generate as sbg
+import seisbench.models as sbm
+import torch
+import torch.nn as nn
+import transformers.models.wav2vec2.modeling_wav2vec2 as hf_wav2vec2
+from transformers.modeling_outputs import TokenClassifierOutput
+
+from seisLM.model.foundation import pretrained_models
+from seisLM.model.foundation.multidim_wav2vec2 import MultiDimWav2Vec2Model
 from seisLM.utils.data_utils import phase_dict
 
 
@@ -205,19 +216,97 @@ class PhaseNetLit(SeisBenchModuleLit):
     return score_detection, score_p_or_s, p_sample, s_sample
 
 
+_HIDDEN_STATES_START_POSITION = 2
+
+class MultiDimWav2Vec2ForFrameClassification(
+  hf_wav2vec2.Wav2Vec2ForAudioFrameClassification):
+  """ Wav2Vec2 model with a contrastive loss head."""
+
+  def __init__(self, config: hf_wav2vec2.Wav2Vec2Config):
+    super().__init__(config)
+    self.wav2vec2 = MultiDimWav2Vec2Model(config)
+    self.classifier = nn.Linear(
+      config.hidden_size + config.input_dim,
+      config.num_labels
+    )
+
+  def forward(
+      self,
+      input_values: Optional[torch.Tensor],
+  ) -> Union[Tuple, TokenClassifierOutput]:
+    r"""
+    labels (`torch.LongTensor` of shape `(batch_size, target_length, num_labels)`,
+        *optional*):
+        Onehot labels for computing the frame classification loss.
+    """
+
+    # input_values: [batch_size, num_channels, seq_len]
+    input_seq_length = input_values.shape[-1]
+
+    output_hidden_states = (
+      True if self.config.use_weighted_layer_sum else False
+    )
+
+    outputs = self.wav2vec2(
+        input_values,
+        attention_mask=None,
+        output_attentions=None,
+        output_hidden_states=output_hidden_states,
+        return_dict=self.config.use_return_dict,
+    )
+
+
+    # The resulting hidden_states: [batch_size, seq_len, hidden_size]
+    if self.config.use_weighted_layer_sum:
+      hidden_states = outputs[_HIDDEN_STATES_START_POSITION]
+      hidden_states = torch.stack(hidden_states, dim=1)
+      norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
+      hidden_states = (hidden_states * norm_weights.view(-1, 1, 1)).sum(dim=1)
+    else:
+      hidden_states = outputs[0]
+
+    # If seq_length of hidden_states and labels are not the same, we need to
+    # interpolate the hidden_states to match the labels.
+    if (hidden_states.shape[1] != input_seq_length):
+      # change to [batch_size, hidden_size, seq_len]
+      hidden_states = einops.rearrange(hidden_states, 'b l d -> b d l')
+      hidden_states = torch.nn.functional.interpolate(
+        hidden_states, size=input_seq_length,
+        mode='linear', align_corners=False
+      )
+      hidden_states = einops.rearrange(hidden_states, 'b d l -> b l d')
+
+    # Concatenate the hidden_states with the input_values
+
+    hidden_states = torch.cat(
+      [hidden_states,
+       einops.rearrange(input_values, 'b d l -> b l d')], dim=-1)
+
+    # logits: [batch_size, seq_len, num_classes]
+    logits = self.classifier(hidden_states)
+
+    # logits: [batch_size, num_classes, seq_len]
+    logits = einops.rearrange(logits, 'b l c -> b c l')
+
+    # softmax over the classes
+    return torch.nn.functional.softmax(logits, dim=1)
+
+
 class MultiDimWav2Vec2ForFrameClassificationLit(PhaseNetLit):
   """
-  LightningModule for PhaseNet
+  LightningModule for MultiDimWav2Vec2ForFrameClassification
 
-  :param lr: Learning rate, defaults to 1e-2
-  :param sigma: Standard deviation passed to the ProbabilisticPickLabeller
-  :param sample_boundaries: Low and high boundaries for
-      the RandomWindow selection.
-  :param kwargs: Kwargs are passed to the SeisBench.models.PhaseNet constructor.
+  Attributes:
+   model_name_or_path: pretrained model name or path, from which we load the
+    checkpoint
+   lr: Learning rate, defaults to 1e-2
+   sigma: Standard deviation passed to the ProbabilisticPickLabeller
+   sample_boundaries: Low and high boundaries for the RandomWindow selection.
+   num_labels: Number of labels for the classification task.
   """
 
   def __init__(self, model_name_or_path, lr=1e-2, sigma=20,
-              sample_boundaries=(None, None), **kwargs):
+              sample_boundaries=(None, None), num_labels=3, **kwargs):
     super().__init__(
         lr=lr, sigma=sigma, sample_boundaries=sample_boundaries, **kwargs
     )
@@ -228,14 +317,13 @@ class MultiDimWav2Vec2ForFrameClassificationLit(PhaseNetLit):
     ).model
 
     model_config = pretrained_model.config
-    model_config.num_labels = 3
+    model_config.num_labels = num_labels
 
     self.model = MultiDimWav2Vec2ForFrameClassification(model_config)
 
     self.model.wav2vec2.load_state_dict(
         pretrained_model.wav2vec2.state_dict()
     )
-    # self.model.freeze_base_model()
     self.model.freeze_feature_extractor()
 
   def configure_optimizers(self):
