@@ -2,21 +2,20 @@
 import argparse
 import json
 import time
-import os
 from ml_collections import config_dict
 import lightning as L
 import torch
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch import seed_everything
-from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.loggers import TensorBoardLogger
 from transformers import Wav2Vec2Config
-from seisLM.model.pretrained_models import LitMultiDimWav2Vec2
+from seisLM.model.foundation.pretrained_models import LitMultiDimWav2Vec2
 from seisLM.data_pipeline import collator
 from seisLM.data_pipeline import dataloaders
 from seisLM.utils import project_path
 
 
-def train(model_config, training_config, experiment_name):
+def train_self_supervised(model_config, training_config):
 
   seed_everything(training_config.seed)
   model = LitMultiDimWav2Vec2(model_config, training_config)
@@ -54,16 +53,17 @@ def train(model_config, training_config, experiment_name):
   formatted_time = time.strftime(
     "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
   )
-  run_name = f"{training_config.seed}__{formatted_time}" + '_' + experiment_name
 
-  logger = WandbLogger(
-      project='pretrained_seisLM',
-      save_dir=project_path.MODEL_SAVE_DIR,
-      name=run_name,
-      id=run_name,
-      save_code=True,
+  formatted_time = time.strftime(
+    "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
   )
 
+  tensorboard_args = {
+    'save_dir': project_path.MODEL_SAVE_DIR + '/pretrain_run/',
+    'version': f"{training_config.seed}__{formatted_time}",
+  }
+
+  logger = TensorBoardLogger(**tensorboard_args)
   logger.log_hyperparams(model.hparams)
   logger.log_hyperparams(training_config.to_dict())
 
@@ -97,12 +97,13 @@ if __name__ == '__main__':
   parser.add_argument("--training_config_path", type=str, required=True)
   args = parser.parse_args()
 
-  model_config = Wav2Vec2Config.from_pretrained(args.model_config_path)
+  model_config = Wav2Vec2Config.from_pretrained(
+    args.model_config_path,
+    attn_implementation="sdpa"
+  )
 
   with open(args.training_config_path, "r", encoding="utf-8") as f:
     training_config = json.load(f)
   training_config = config_dict.ConfigDict(training_config)
 
-
-  experiment_name = os.path.basename(args.model_config_path)[:-5]
-  train(model_config, training_config, experiment_name)
+  train_self_supervised(model_config, training_config)
