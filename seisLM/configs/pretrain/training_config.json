@@ -10,7 +10,7 @@
   ],
   "devices": 4,
   "global_batch_size": 32,
-  "learning_rate": 0.0001,
+  "learning_rate": 0.0002,
   "log_every_n_steps": 100,
   "mask_time_length": 10,
   "mask_time_prob": 0.65,
@@ -18,7 +18,7 @@
   "min_gumbel_temperature": 0.5,
   "num_train_epochs": 20,
   "num_workers": 8,
-  "precision": "32",
+  "precision": "16-mixed",
   "seed": 42,
   "warmup_frac_step": 0.2,
   "weight_decay": 0.0001

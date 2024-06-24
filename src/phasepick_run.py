@@ -12,11 +12,13 @@ import time
 import torch
 import lightning as L
 from lightning.pytorch.callbacks import ModelCheckpoint
-from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.loggers import WandbLogger
+
 from lightning.pytorch import seed_everything
 from seisLM.data_pipeline import dataloaders
 from seisLM.model.task_specific import phasepick_models
 from seisLM.utils import project_path
+from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
 
 def train_phasepick(config, task_name):
@@ -52,31 +54,40 @@ def train_phasepick(config, task_name):
       batch_size=config.get("batch_size", 1024),
       num_workers=config.get("num_workers", 8),
       training_fraction=training_fraction,
-      cache=config.get("cache", 'full'),
+      cache=config.get("cache", None),
+      prefetch_factor=config.get("prefetch_factor", 2),
   )
 
 
-
-  # Tensorboard logs to /save_dir/name/version/sub_dir/,
-  # Here:
-  # - `save_dir` is .../task_phase_pick/
-  # - `name` is the fraction of training samples
-  # - `version` is the model name
-  # - `sub_dir` is the seed and time
 
   formatted_time = time.strftime(
     "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
   )
 
-  tensorboard_args = {
-    'save_dir': project_path.MODEL_SAVE_DIR + f'/{task_name}/',
-    'name': f"train_frac_{training_fraction}",
-    'version': f"model_{model_name}",
-    'sub_dir': f"{seed}__{formatted_time}",
-  }
+  run_name = config['data'] + f"_train_frac_{training_fraction}" \
+        + f"_model_{model_name}" + f"_seed_{seed}" + f"_time_{formatted_time}"
 
-  # project_path.create_folder_if_not_exists(save_dir)
-  logger = TensorBoardLogger(**tensorboard_args)
+  logger = WandbLogger(
+      # Groups related experiments together
+      project=task_name,
+      # Describes a specific experiment within the project
+      name=run_name,
+      # Filter runs based on keywords or categories.
+      tags=[
+        f"data_{config['data']}",
+        f"model_{model_name}",
+        f"train_frac_{training_fraction}"
+      ],
+      # A unique identifier for the run
+      id=run_name,
+      save_code=True,
+      save_dir=project_path.MODEL_SAVE_DIR,
+  )
+
+  slurm_job_id = os.getenv('SLURM_JOB_ID')
+  if slurm_job_id:
+    logger.log_hyperparams({"slurm_job_id": slurm_job_id})
+
   logger.log_hyperparams(model.hparams)
   logger.log_hyperparams(config)
 
@@ -117,4 +128,11 @@ if __name__ == "__main__":
     config = json.load(f)
 
   task_name = os.path.basename(__file__)[: -len(".py")]
-  train_phasepick(config, task_name)
+
+  try:
+    train_phasepick(config, task_name)
+  except:
+    print("Something went wrong")
+  finally:
+    shutdown_cleanup_thread.start()
+

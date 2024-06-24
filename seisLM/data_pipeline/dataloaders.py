@@ -47,7 +47,7 @@ def prepare_seisbench_dataloaders(
   training_fraction=1.0,
   sampling_rate=100,
   component_order="ZNE", dimension_order="NCW",
-  collator=None, cache=None
+  collator=None, cache=None, prefetch_factor=2,
   ):
   """
   Returns the training and validation data loaders
@@ -105,6 +105,7 @@ def prepare_seisbench_dataloaders(
       drop_last=True,  # Avoid crashes from batch norm layers for batch size 1
       pin_memory=True,
       collate_fn=collator,
+      prefetch_factor=prefetch_factor,
   )
   dev_loader = DataLoader(
       concat_dev_generators,
@@ -113,6 +114,7 @@ def prepare_seisbench_dataloaders(
       worker_init_fn=worker_seeding,
       pin_memory=True,
       collate_fn=collator,
+      prefetch_factor=prefetch_factor,
   )
 
   return train_loader, dev_loader

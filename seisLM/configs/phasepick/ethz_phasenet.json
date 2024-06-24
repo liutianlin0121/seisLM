@@ -1,6 +1,8 @@
 {
   "model": "PhaseNet",
   "data": "ETHZ",
+  "prefetch_factor": 1,
+  "num_workers": 8,
   "trainer_args": {
     "devices": 2,
     "strategy": "ddp",
