@@ -1,17 +1,15 @@
 #!/bin/bash
 
-#SBATCH --job-name=seisLM_pretrain     #Name of your job
-#SBATCH --cpus-per-task=4    #Number of cores to reserve
-#SBATCH --mem=15G
-#SBATCH --time=7-00:00:00      #Maximum allocated time
-#SBATCH --qos=1week         #Selected queue to allocate your job
-#SBATCH --output=seisLM_pretrain.o%j   #Path and name to the file for the STDOUT
-#SBATCH --error=seisLM_pretrain.e%j    #Path and name to the file for the STDERR
-#SBATCH --ntasks-per-node=4      # total number of tasks per node
-#SBATCH --gres=gpu:4         #Number of GPUs to reserve
-#SBATCH --partition=a100
-#SBATCH --mail-type=begin        # send email when job begins
-#SBATCH --mail-type=end          # send email when job ends
+#SBATCH --cpus-per-task=8        # Number of cores to reserve
+#SBATCH --gres=gpu:2             # Number of GPUs to reserve
+#SBATCH --job-name=pretrain     # Name of your job
+#SBATCH --mem-per-cpu=4G         # Amount of RAM/core to reserve
+#SBATCH --nodes=1                # Node count
+#SBATCH --ntasks-per-node=2      # Total number of tasks per node
+#SBATCH --output=pretrain.o%j   # Path and name to the file for the STDOUT
+#SBATCH --partition=rtx8000,a100         # Partition to allocate your job
+#SBATCH --qos=1day             # Selected queue to allocate your job
+#SBATCH --time=1-00:00:00        # Maximum allocated time
 
 source ~/anaconda3/etc/profile.d/conda.sh
 
@@ -24,4 +22,7 @@ conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench
 # srun python3 pretrain_run.py --model_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/model_config_4xdownsample.json --training_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/training_config.json
 
 # no sinkhorn with scaled logits in quantization
-srun python3 pretrain_run.py --model_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/model_config_4xdownsample_scale_logits_quantization.json --training_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/training_config.json
+# srun python3 pretrain_run.py --model_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/model_config_4xdownsample_scale_logits_quantization.json --training_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/training_config.json
+
+# 3 encoder layers with scaled logits in quantization
+srun python3 pretrain_run.py --model_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/model_config_3encoder_layers_scale_logits_quantization.json --training_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/training_config.json

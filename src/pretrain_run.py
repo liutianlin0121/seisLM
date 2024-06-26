@@ -1,5 +1,6 @@
 """Training of earthquake language model."""
 import argparse
+import os
 import json
 import time
 from ml_collections import config_dict
@@ -7,13 +8,13 @@ import lightning as L
 import torch
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch import seed_everything
-from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.loggers import WandbLogger
 from transformers import Wav2Vec2Config
 from seisLM.model.foundation.pretrained_models import LitMultiDimWav2Vec2
 from seisLM.data_pipeline import collator
 from seisLM.data_pipeline import dataloaders
 from seisLM.utils import project_path
-
+from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
 def train_self_supervised(model_config, training_config):
 
@@ -54,16 +55,18 @@ def train_self_supervised(model_config, training_config):
     "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
   )
 
-  formatted_time = time.strftime(
-    "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
+  logger = WandbLogger(
+      project='pretrained_run',
+      save_dir=project_path.MODEL_SAVE_DIR,
+      name=f"{training_config.seed}__{formatted_time}",
+      id=f"{training_config.seed}__{formatted_time}",
+      save_code=True,
   )
 
-  tensorboard_args = {
-    'save_dir': project_path.MODEL_SAVE_DIR + '/pretrain_run/',
-    'version': f"{training_config.seed}__{formatted_time}",
-  }
+  slurm_job_id = os.getenv('SLURM_JOB_ID')
+  if slurm_job_id:
+    logger.log_hyperparams({"slurm_job_id": slurm_job_id})
 
-  logger = TensorBoardLogger(**tensorboard_args)
   logger.log_hyperparams(model.hparams)
   logger.log_hyperparams(training_config.to_dict())
 
@@ -106,4 +109,9 @@ if __name__ == '__main__':
     training_config = json.load(f)
   training_config = config_dict.ConfigDict(training_config)
 
-  train_self_supervised(model_config, training_config)
+  try:
+    train_self_supervised(model_config, training_config)
+  except:
+    print("Something went wrong")
+  finally:
+    shutdown_cleanup_thread.start()

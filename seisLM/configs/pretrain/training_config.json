@@ -4,12 +4,16 @@
   "adam_epsilon": 1e-08,
   "data_name": [
     "ETHZ",
-    "GEOFON",
+    "INSTANCE",
+    "Iquique",
+    "LenDB",
+    "SCEDC",
     "STEAD",
+    "GEOFON",
     "NEIC"
-  ],
-  "devices": 4,
-  "global_batch_size": 32,
+    ],
+  "devices": 2,
+  "global_batch_size": 16,
   "learning_rate": 0.0002,
   "log_every_n_steps": 100,
   "mask_time_length": 10,
@@ -21,5 +25,5 @@
   "precision": "16-mixed",
   "seed": 42,
   "warmup_frac_step": 0.2,
-  "weight_decay": 0.0001
+  "weight_decay": 0.0
 }
