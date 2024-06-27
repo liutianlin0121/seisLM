@@ -1,15 +1,15 @@
 #!/bin/bash
 
 #SBATCH --cpus-per-task=8        # Number of cores to reserve
-#SBATCH --gres=gpu:2             # Number of GPUs to reserve
+#SBATCH --gres=gpu:4             # Number of GPUs to reserve
 #SBATCH --job-name=pretrain     # Name of your job
 #SBATCH --mem-per-cpu=4G         # Amount of RAM/core to reserve
 #SBATCH --nodes=1                # Node count
-#SBATCH --ntasks-per-node=2      # Total number of tasks per node
+#SBATCH --ntasks-per-node=4      # Total number of tasks per node
 #SBATCH --output=pretrain.o%j   # Path and name to the file for the STDOUT
-#SBATCH --partition=rtx8000,a100         # Partition to allocate your job
-#SBATCH --qos=1day             # Selected queue to allocate your job
-#SBATCH --time=1-00:00:00        # Maximum allocated time
+#SBATCH --partition=a100         # Partition to allocate your job
+#SBATCH --qos=1week             # Selected queue to allocate your job
+#SBATCH --time=7-00:00:00        # Maximum allocated time
 
 source ~/anaconda3/etc/profile.d/conda.sh
 

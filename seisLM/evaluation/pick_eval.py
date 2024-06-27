@@ -13,7 +13,7 @@ import lightning as L
 import seisbench.data as sbd
 import seisbench.generate as sbg
 import seisbench.models as sbm
-from seisLM.model import supervised_models
+from seisLM.model.task_specific import phasepick_models
 from seisLM.utils import project_path
 
 data_aliases = {
@@ -65,7 +65,7 @@ def save_pick_predictions(
   torch.backends.cudnn.benchmark = True
   torch.backends.cudnn.deterministic = True
 
-  model_cls = supervised_models.__getattribute__(model_name + "Lit")
+  model_cls = phasepick_models.__getattribute__(model_name + "Lit")
   if 'ckpt' in checkpoint_path_or_data_name:
     # In case of a checkpoint, load the model from the checkpoint
     model = model_cls.load_from_checkpoint(checkpoint_path_or_data_name)

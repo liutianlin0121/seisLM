@@ -4,7 +4,7 @@
   "adam_epsilon": 1e-08,
   "data_name": [
     "ETHZ",
-    "INSTANCE",
+    "InstanceCountsCombined",
     "Iquique",
     "LenDB",
     "SCEDC",
@@ -12,9 +12,9 @@
     "GEOFON",
     "NEIC"
     ],
-  "devices": 2,
-  "global_batch_size": 16,
-  "learning_rate": 0.0002,
+  "devices": 4,
+  "global_batch_size": 64,
+  "learning_rate": 0.0005,
   "log_every_n_steps": 100,
   "mask_time_length": 10,
   "mask_time_prob": 0.65,

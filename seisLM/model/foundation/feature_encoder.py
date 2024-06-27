@@ -1,7 +1,6 @@
 "Feature encoder"
 import einops
 from torch import nn
-from transformers import Wav2Vec2Config, activations
 
 class Wav2Vec2NoLayerNormConvLayer(nn.Module):
   def __init__(self, config, layer_id=0):
@@ -24,7 +23,7 @@ class Wav2Vec2NoLayerNormConvLayer(nn.Module):
         stride=config.conv_stride[layer_id],
         bias=config.conv_bias,
     )
-    self.activation = activations.ACT2FN[config.feat_extract_activation]
+    self.activation = nn.functional.gelu
 
   def forward(self, hidden_states):
     hidden_states = self.conv(hidden_states)
@@ -56,7 +55,7 @@ class Wav2Vec2LayerNormConvLayer(nn.Module):
     self.layer_norm = nn.LayerNorm(
       self.out_conv_dim, elementwise_affine=True
     )
-    self.activation = activations.ACT2FN[config.feat_extract_activation]
+    self.activation = nn.functional.gelu
 
   def forward(self, hidden_states):
     hidden_states = self.conv(hidden_states)
@@ -89,7 +88,7 @@ class Wav2Vec2GroupNormConvLayer(nn.Module):
         stride=config.conv_stride[layer_id],
         bias=config.conv_bias,
     )
-    self.activation = activations.ACT2FN[config.feat_extract_activation]
+    self.activation = nn.functional.gelu
 
     self.layer_norm = nn.GroupNorm(
       num_groups=self.out_conv_dim,

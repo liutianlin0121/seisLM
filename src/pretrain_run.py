@@ -1,5 +1,6 @@
 """Training of earthquake language model."""
 import argparse
+import traceback
 import os
 import json
 import time
@@ -111,7 +112,8 @@ if __name__ == '__main__':
 
   try:
     train_self_supervised(model_config, training_config)
-  except:
+  except Exception as e:
     print("Something went wrong")
+    traceback.print_exc()
   finally:
     shutdown_cleanup_thread.start()
