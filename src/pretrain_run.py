@@ -17,6 +17,7 @@ from seisLM.data_pipeline import dataloaders
 from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
+DEFAULT_NUM_WORKERS = 4
 def train_self_supervised(model_config, training_config):
 
   seed_everything(training_config.seed)
@@ -31,11 +32,17 @@ def train_self_supervised(model_config, training_config):
     )
 
 
+  # FIXME: This is a temporary fix for the number of workers
+  training_config.num_workers = int(
+    os.environ.get('SLURM_CPUS_PER_TASK', DEFAULT_NUM_WORKERS))
+
   train_loader, dev_loader = dataloaders.prepare_seisbench_dataloaders(
     model=model,
+    training_fraction=training_config.training_fraction,
     data_names=training_config.data_name,
-    batch_size=training_config.global_batch_size,
+    batch_size=training_config.local_batch_size,
     num_workers=training_config.num_workers,
+    prefetch_factor=training_config.prefetch_factor,
     collator=data_collator,
   )
 
@@ -57,7 +64,7 @@ def train_self_supervised(model_config, training_config):
   )
 
   logger = WandbLogger(
-      project='pretrained_run',
+      project='pretrained_seisLM',
       save_dir=project_path.MODEL_SAVE_DIR,
       name=f"{training_config.seed}__{formatted_time}",
       id=f"{training_config.seed}__{formatted_time}",
@@ -65,6 +72,7 @@ def train_self_supervised(model_config, training_config):
   )
 
   slurm_job_id = os.getenv('SLURM_JOB_ID')
+
   if slurm_job_id:
     logger.log_hyperparams({"slurm_job_id": slurm_job_id})
 
@@ -99,6 +107,11 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument("--model_config_path", type=str, required=True)
   parser.add_argument("--training_config_path", type=str, required=True)
+  # Add the boolean argument with a default value of False
+  parser.add_argument(
+      "--test_run", action="store_true",
+      help="Run in test mode for profiling purposes"
+  )
   args = parser.parse_args()
 
   model_config = Wav2Vec2Config.from_pretrained(
@@ -109,6 +122,9 @@ if __name__ == '__main__':
   with open(args.training_config_path, "r", encoding="utf-8") as f:
     training_config = json.load(f)
   training_config = config_dict.ConfigDict(training_config)
+
+  if args.test_run:
+    training_config.num_train_epochs = 1
 
   try:
     train_self_supervised(model_config, training_config)
