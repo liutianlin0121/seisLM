@@ -7,7 +7,7 @@
     "GEOFON",
     "STEAD",
     "NEIC",
-    "InstanceCountsCombined",
+    "InstanceCounts",
     "Iquique"
   ],
   "devices": 4,

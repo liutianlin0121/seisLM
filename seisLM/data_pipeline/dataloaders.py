@@ -3,8 +3,10 @@ import logging
 import numpy as np
 import seisbench.generate as sbg
 import seisbench.data as sbd
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import DataLoader
 from seisbench.util import worker_seeding
+from seisbench.data import MultiWaveformDataset
+
 
 def get_dataset_by_name(name):
   """
@@ -58,8 +60,10 @@ def prepare_seisbench_dataloaders(
   if isinstance(data_names, str):
     data_names = [data_names]
 
-  train_generators = []
-  dev_generators = []
+  # train_generators = []
+  # dev_generators = []
+
+  multi_waveform_datasets = []
   for data_name in data_names:
     dataset = get_dataset_by_name(data_name)(
       sampling_rate=sampling_rate,
@@ -76,28 +80,29 @@ def prepare_seisbench_dataloaders(
 
       dataset._metadata["split"] = split  # pylint: disable=protected-access
 
-    train_data = dataset.train()
-    apply_training_fraction(training_fraction, train_data)
+    multi_waveform_datasets.append(dataset)
 
-    dev_data = dataset.dev()
+  if len(multi_waveform_datasets) == 1:
+    dataset = multi_waveform_datasets[0]
+  else:
+    # Concatenate multiple datasets
+    dataset = MultiWaveformDataset(multi_waveform_datasets)
 
-    train_data.preload_waveforms(pbar=True)
-    dev_data.preload_waveforms(pbar=True)
+  train_data, dev_data = dataset.train(), dataset.dev()
+  apply_training_fraction(training_fraction, train_data)
 
-    train_generator = sbg.GenericGenerator(train_data)
-    dev_generator = sbg.GenericGenerator(dev_data)
+  train_data.preload_waveforms(pbar=True)
+  dev_data.preload_waveforms(pbar=True)
 
-    train_generator.add_augmentations(model.get_train_augmentations())
-    dev_generator.add_augmentations(model.get_val_augmentations())
+  train_generator = sbg.GenericGenerator(train_data)
+  dev_generator = sbg.GenericGenerator(dev_data)
 
-    train_generators.append(train_generator)
-    dev_generators.append(dev_generator)
+  train_generator.add_augmentations(model.get_train_augmentations())
+  dev_generator.add_augmentations(model.get_val_augmentations())
 
-  concat_train_generators = ConcatDataset(train_generators)
-  concat_dev_generators = ConcatDataset(dev_generators)
 
   train_loader = DataLoader(
-      concat_train_generators,
+      train_generator,
       batch_size=batch_size,
       shuffle=True,
       num_workers=num_workers,
@@ -108,7 +113,7 @@ def prepare_seisbench_dataloaders(
       prefetch_factor=prefetch_factor,
   )
   dev_loader = DataLoader(
-      concat_dev_generators,
+      dev_generator,
       batch_size=batch_size,
       num_workers=num_workers,
       worker_init_fn=worker_seeding,
