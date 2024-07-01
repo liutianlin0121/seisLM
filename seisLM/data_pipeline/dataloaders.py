@@ -74,7 +74,7 @@ def prepare_seisbench_dataloaders(
       split[int(0.6 * len(dataset)) : int(0.7 * len(dataset))] = "dev"
       split[int(0.7 * len(dataset)) :] = "test"
 
-      dataset._metadata["split"] = split
+      dataset._metadata["split"] = split  # pylint: disable=protected-access
 
     train_data = dataset.train()
     apply_training_fraction(training_fraction, train_data)

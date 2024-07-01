@@ -6,7 +6,9 @@
     "ETHZ",
     "GEOFON",
     "STEAD",
-    "NEIC"
+    "NEIC",
+    "InstanceCountsCombined",
+    "Iquique"
   ],
   "devices": 4,
   "local_batch_size": 28,
