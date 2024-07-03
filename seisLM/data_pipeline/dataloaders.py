@@ -7,18 +7,32 @@ from torch.utils.data import DataLoader
 from seisbench.util import worker_seeding
 from seisbench.data import MultiWaveformDataset
 
+data_aliases = {
+    "ethz": "ETHZ",
+    "geofon": "GEOFON",
+    "stead": "STEAD",
+    "neic": "NEIC",
+    "instance": "InstanceCountsCombined",
+    "iquique": "Iquique",
+    "lendb": "LenDB",
+    "scedc": "SCEDC",
+}
 
-def get_dataset_by_name(name):
+
+def get_dataset_by_name(name: str):
   """
   Resolve dataset name to class from seisbench.data.
 
-  :param name: Name of dataset as defined in seisbench.data.
-  :return: Dataset class from seisbench.data
+  Args:
+    name: Name of dataset as defined in seisbench.data.
+
+  Returns:
+    The dataset class from seisbench.data
   """
   try:
     return sbd.__getattribute__(name)
-  except AttributeError:
-    raise ValueError(f"Unknown dataset '{name}'.")
+  except AttributeError as e:
+    raise ValueError(f"Unknown dataset '{name}'.") from e
 
 
 def apply_training_fraction(training_fraction, train_data):
@@ -26,9 +40,12 @@ def apply_training_fraction(training_fraction, train_data):
   Reduces the size of train_data to train_fraction by inplace filtering.
   Filter blockwise for efficient memory savings.
 
-  :param training_fraction: Training fraction between 0 and 1.
-  :param train_data: Training dataset
-  :return: None
+  Args:
+    training_fraction: Training fraction between 0 and 1.
+    train_data: Training dataset
+
+  Returns:
+    None
   """
 
   if not 0.0 < training_fraction <= 1.0:
@@ -52,6 +69,7 @@ def prepare_seisbench_dataloaders(
   collator=None, cache=None, prefetch_factor=2,
   ):
   """
+  TODO: Write docstring
   Returns the training and validation data loaders
   :param config:
   :param model:
@@ -59,9 +77,6 @@ def prepare_seisbench_dataloaders(
   """
   if isinstance(data_names, str):
     data_names = [data_names]
-
-  # train_generators = []
-  # dev_generators = []
 
   multi_waveform_datasets = []
   for data_name in data_names:
@@ -91,8 +106,9 @@ def prepare_seisbench_dataloaders(
   train_data, dev_data = dataset.train(), dataset.dev()
   apply_training_fraction(training_fraction, train_data)
 
-  train_data.preload_waveforms(pbar=True)
-  dev_data.preload_waveforms(pbar=True)
+  if cache:
+    train_data.preload_waveforms(pbar=True)
+    dev_data.preload_waveforms(pbar=True)
 
   train_generator = sbg.GenericGenerator(train_data)
   dev_generator = sbg.GenericGenerator(dev_data)
@@ -125,15 +141,4 @@ def prepare_seisbench_dataloaders(
   return train_loader, dev_loader
 
 
-
-data_aliases = {
-    "ethz": "ETHZ",
-    "geofon": "GEOFON",
-    "stead": "STEAD",
-    "neic": "NEIC",
-    "instance": "InstanceCountsCombined",
-    "iquique": "Iquique",
-    "lendb": "LenDB",
-    "scedc": "SCEDC",
-}
 

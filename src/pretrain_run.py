@@ -18,7 +18,13 @@ from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
 DEFAULT_NUM_WORKERS = 4
-def train_self_supervised(model_config, training_config):
+def train_self_supervised(model_config, training_config, test_run):
+  """
+  Args:
+    model_config: Wav2Vec2Config object
+    training_config: config_dict.ConfigDict object
+    test_run: bool
+  """
 
   seed_everything(training_config.seed)
   model = LitMultiDimWav2Vec2(model_config, training_config)
@@ -32,7 +38,6 @@ def train_self_supervised(model_config, training_config):
     )
 
 
-  # FIXME: This is a temporary fix for the number of workers
   training_config.num_workers = int(
     os.environ.get('SLURM_CPUS_PER_TASK', DEFAULT_NUM_WORKERS))
 
@@ -44,6 +49,7 @@ def train_self_supervised(model_config, training_config):
     num_workers=training_config.num_workers,
     prefetch_factor=training_config.prefetch_factor,
     collator=data_collator,
+    cache=training_config.cache_dataset,
   )
 
   training_config.max_train_steps = training_config.num_train_epochs * len(
@@ -63,8 +69,10 @@ def train_self_supervised(model_config, training_config):
     "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
   )
 
+  project = 'pretrained_seisLM' if not test_run else 'test_pretrained_seisLM'
+
   logger = WandbLogger(
-      project='pretrained_seisLM',
+      project=project,
       save_dir=project_path.MODEL_SAVE_DIR,
       name=f"{training_config.seed}__{formatted_time}",
       id=f"{training_config.seed}__{formatted_time}",
@@ -127,9 +135,8 @@ if __name__ == '__main__':
     training_config.num_train_epochs = 1
 
   try:
-    train_self_supervised(model_config, training_config)
+    train_self_supervised(model_config, training_config, args.test_run)
   except Exception as e:
-    print("Something went wrong")
     traceback.print_exc()
   finally:
     shutdown_cleanup_thread.start()
