@@ -215,7 +215,7 @@ def train_val_test_split(df, train_percentage=0.70, val_percentage=0.10, test_pe
         easily find the sample in the given df). 
         
   """
-
+  seed_everything(42)
   if (train_percentage+val_percentage+test_percentage)>1:
       print("WARNING: train_percentage+val_percentage+test_percentage cannot be grater than 1")
   
@@ -227,6 +227,7 @@ def train_val_test_split(df, train_percentage=0.70, val_percentage=0.10, test_pe
 
       source_id_array=list(df.groupby(['source_id']).groups.keys())
       source_id_array=np.array(source_id_array) 
+
       #np.random.seed(123) 
       source_id_test=[]
       for i in force_in_test:
@@ -351,20 +352,10 @@ def train_val_test_split(df, train_percentage=0.70, val_percentage=0.10, test_pe
 
   X_train=np.append(training_setE,training_setN, axis=2)
   X_train=np.append(X_train, training_setZ, axis=2)
-  print("X_train.shape: ",X_train.shape)
-  print("y_train.shape: ",y_train.shape)
-  print("index_train.shape: ",index_train.shape)
   X_val=np.append(val_setE,val_setN, axis=2)
   X_val=np.append(X_val, val_setZ, axis=2)
-  print("X_val.shape: ",X_val.shape)
-  print("y_val.shape: ",y_val.shape)
-  print("index_val.shape: ",index_val.shape)
   X_test=np.append(test_setE,test_setN, axis=2)
   X_test=np.append(X_test, test_setZ, axis=2)
-  print("X_test.shape: ",X_test.shape)
-  print("y_test.shape: ",y_test.shape)
-  print("index_test.shape: ",index_test.shape)
-  
   return df, X_train, y_train, index_train, X_val, y_val, index_val, X_test, y_test, index_test
 
 def create_dataloader(X, y, index, target_dataset, batch_size = 32):
