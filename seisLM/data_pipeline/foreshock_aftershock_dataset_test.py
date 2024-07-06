@@ -83,7 +83,7 @@ def laurenti_preprocess(
   return X_train, y_train, X_val, y_val, X_test, y_test
 
 for split_random in [False, True]:
-  for num_classes in [2, 4, 9]:
+  for num_classes in [9, 4, 2]:
     print(f'split_random={split_random}, num_classes={num_classes}')
     datasets = myu.create_foreshock_aftershock_datasets(
       num_classes=num_classes,

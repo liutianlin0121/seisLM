@@ -1,6 +1,6 @@
 '''Utility functions for the foreshock aftershock dataset'''
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Tuple, Dict, Union
 
 import einops
 import numpy as np
@@ -45,7 +45,7 @@ def equallize_dataset_length(
   df_post: pd.DataFrame,
   num_classes: int,
   seed: int = 42
-  ):
+  ) -> Tuple[pd.DataFrame, Optional[pd.DataFrame], pd.DataFrame]:
 
   """ Truncate the DataFrames to make sure each class has the same length."""
   seed_everything(seed)
@@ -83,89 +83,69 @@ def equallize_dataset_length(
   return df_pre, df_visso, df_post
 
 
-def split_df_into_class_dependent_frames(
-  df: pd.DataFrame,
+# Function to create a label array with a 1 at the specified position
+def create_label_array(num_classes, position):
+  label_array = [0] * num_classes
+  label_array[position] = 1
+  return label_array
+
+
+def equip_shock_dfs_with_class_labels(
+  df_pre: pd.DataFrame,
+  df_visso: Optional[pd.DataFrame],
+  df_post: pd.DataFrame,
   num_classes: int,
-  shock_category: str):
+  ) -> Tuple[pd.DataFrame, Optional[pd.DataFrame], pd.DataFrame]:
+
   """
   Takes a DataFrame and returns a list of sub-DataFrames with new labels.
 
   Args:
-  ----------
-  df : DataFrame
-      Input DataFrame (pre, post, or visso) from where to recompute classes
-  num_classes : int
-      Number of total classes to split the df into (pre, post, and eventually
-      visso if num_classes == 9)
-  pre_or_post_or_visso : str
-      "pre", "post", or "visso" to properly assign the new label
+    df_pre : DataFrame of pre-shock events
+    df_visso : Optional DataFrame or visso-shock events
+    df_post : DataFrame of post-shock events
+    num_classes : Number of total classes to split the df into.
 
   Returns:
-  ----------
-  frames : list of sub-DataFrames from the original df
+    Tuple of DataFrames with class labels.
   """
 
-  # Rename the label column and sort the DataFrame by 'trace_start_time'
-  # df = df.rename(columns={'label': 'label_2classes'})
-  df = df.copy()
-  df.sort_values(by='trace_start_time', inplace=True)
-
-  # Function to create a label array with a 1 at the specified position
-  def create_label_array(num_classes, position):
-    label_array = [0] * num_classes
-    label_array[position] = 1
-    return label_array
-
-  frames = []
-
-  if shock_category == "visso":
-    # Case for 'visso'
-    # Copy the entire DataFrame into frames
-    visso_frame = df#.copy()
-    visso_frame.reset_index(inplace=True)
+  if num_classes % 2 == 1:
+    # When the number of classes is odd, the visso class must be included.
+    assert isinstance(df_visso, pd.DataFrame)
+    df_visso.sort_values(by='trace_start_time', inplace=True)
+    df_visso.reset_index(inplace=True)
 
     # Create a label DataFrame with the same number of rows
-    labels = [create_label_array(num_classes, num_classes // 2)] * len(
-        visso_frame)
+    labels = [create_label_array(num_classes, num_classes // 2)] * len(df_visso)
 
     # Assign the label DataFrame to the visso_frame
-    visso_frame = visso_frame.assign(label=labels)
+    df_visso = df_visso.assign(label=labels)
 
-    # Append the visso_frame to the frames list
-    frames.append(visso_frame)
+  num_pre_or_post_classes = num_classes // 2
+  post_idx_shift = num_classes % 2
 
-  elif shock_category in ["pre", "post"]:
-    # Case for 'pre' and 'post'
-    # Determine the number of rows per sub-DataFrame
-
-    num_pre_or_post_classes = num_classes // 2
+  def process_df(df, offset=0):
+    df.sort_values(by='trace_start_time', inplace=True)
     rows_per_class = len(df) // num_pre_or_post_classes
-    post_idx_shift = num_classes % 2
-
-    # Split the DataFrame into equal parts and process each part
+    frames = []
     for c in range(num_pre_or_post_classes):
-      frame = df.iloc[c * rows_per_class: (c + 1) * rows_per_class]#.copy()
-      frame.reset_index(inplace=True)
-
-      labels = []
-      for _ in range(len(frame)):
-        if shock_category == "pre":
-          label_array = create_label_array(num_classes, c)
-        else:
-          label_array = create_label_array(
-            num_classes, num_pre_or_post_classes + c + post_idx_shift
-          )
-        labels.append(label_array)
-      frame = frame.assign(label=labels)
+      frame = df.iloc[c * rows_per_class: (c + 1) * rows_per_class].reset_index(
+        drop=True)
+      label_position = c + offset
+      frame['label'] = [create_label_array(num_classes, label_position)] * len(
+        frame)
       frames.append(frame)
-  else:
-    raise ValueError(f"shock_category is {shock_category}"
-                     "but must be 'pre', 'post', or 'visso'")
-  return frames
+    return pd.concat(frames, ignore_index=True)
+
+  df_pre = process_df(df_pre)
+  df_post = process_df(df_post, num_pre_or_post_classes + post_idx_shift)
+  return df_pre, df_visso, df_post
 
 
-
-def extract_input_target_from_dataframe(df: pd.DataFrame):
+def extract_input_target_from_dataframe(
+  df: pd.DataFrame) -> Dict[str, Union[np.ndarray, str]]:
+  """Extract the input values and the target values from a DataFrame."""
 
   input_values = np.array(
     df.apply(lambda row: np.stack(
@@ -186,7 +166,10 @@ def extract_input_target_from_dataframe(df: pd.DataFrame):
 def train_val_test_split(
   df: pd.DataFrame,
   train_frac=0.70, val_frac=0.10, test_frac=0.20,
-  event_split_method='random', seed=42, verbose_events=False):
+  event_split_method='random', seed=42, verbose_events=False
+  ) -> Tuple[Dict[str, Union[np.ndarray, str]],
+             Dict[str, Union[np.ndarray, str]],
+             Dict[str, Union[np.ndarray, str]]]:
 
   """
   Split the dataset in train, val, and test folds.
@@ -237,7 +220,6 @@ def train_val_test_split(
     for df_frame in frames_class:
       df_frame = df_frame.sort_values(by=['trace_start_time'])
       source_id_array = df_frame['source_id'].unique()
-      # print(c, source_id_array)
       n_traces_train = int(len(source_id_array) * train_frac)
       n_traces_val = int(len(source_id_array) * val_frac)
       n_traces_test = int(len(source_id_array) * test_frac)
@@ -265,7 +247,6 @@ def train_val_test_split(
     print("Events in validation dataset: ",len(source_id_val))
     print("Events in test dataset: ",len(source_id_test))
 
-  # Apply the function to each subset
   train_df = shuffle_and_reset(df.loc[df['source_id'].isin(source_id_train)])
   val_df = shuffle_and_reset(df.loc[df['source_id'].isin(source_id_val)])
   test_df = shuffle_and_reset(df.loc[df['source_id'].isin(source_id_test)])
@@ -280,7 +261,7 @@ def train_val_test_split(
 
 def create_foreshock_aftershock_datasets(
   num_classes,
-  event_split_method='random',
+  event_split_method,
   train_frac=0.70,
   val_frac=0.10,
   test_frac=0.20,
@@ -309,24 +290,13 @@ def create_foreshock_aftershock_datasets(
   if num_classes==2:
     df = pd.concat([df_pre, df_post], ignore_index=True)
   else:
-    frames_pre = split_df_into_class_dependent_frames(
-      df_pre, num_classes, shock_category="pre"
+    df_tuple_pre_visso_post = equip_shock_dfs_with_class_labels(
+      df_pre, df_visso, df_post, num_classes
     )
-    frames_post = split_df_into_class_dependent_frames(
-      df_post, num_classes, shock_category="post"
+    df = pd.concat(
+      [df for df in df_tuple_pre_visso_post if df is not None],
+      ignore_index=True
     )
-    if isinstance(df_visso, pd.DataFrame):
-      frames_visso = split_df_into_class_dependent_frames(
-        df_visso, num_classes, shock_category="visso"
-      )
-      df=pd.concat(
-        [pd.concat(frames_pre),pd.concat(frames_visso),pd.concat(frames_post)],
-        ignore_index=True
-      )
-    else:
-      df=pd.concat(
-        [pd.concat(frames_pre),pd.concat(frames_post)], ignore_index=True
-      )
 
   train_data, val_data, test_data = train_val_test_split(
     df=df,
@@ -348,6 +318,7 @@ def create_foreshock_aftershock_datasets(
 def create_foreshock_aftershock_dataloaders(
   num_classes,
   batch_size,
+  event_split_method,
   seed=42,
   train_frac=0.70,
   val_frac=0.10,
@@ -358,6 +329,7 @@ def create_foreshock_aftershock_dataloaders(
 
   datasets = create_foreshock_aftershock_datasets(
     num_classes=num_classes,
+    event_split_method=event_split_method,
     seed=seed,
     train_frac=train_frac,
     val_frac=val_frac,
