@@ -8,6 +8,7 @@ import pandas as pd
 import torch
 from lightning import seed_everything
 from sklearn.utils import shuffle
+from seisLM.utils.project_path import DATA_DIR
 
 
 def compute_norcia_ttf(row):
@@ -82,7 +83,10 @@ def equallize_dataset_length(
   return df_pre, df_visso, df_post
 
 
-def split_df_into_class_dependent_frames(df, num_classes, pre_or_post):
+def split_df_into_class_dependent_frames(
+  df: pd.DataFrame,
+  num_classes: int,
+  shock_category: str):
   """
   Takes a DataFrame and returns a list of sub-DataFrames with new labels.
 
@@ -93,7 +97,7 @@ def split_df_into_class_dependent_frames(df, num_classes, pre_or_post):
   num_classes : int
       Number of total classes to split the df into (pre, post, and eventually
       visso if num_classes == 9)
-  pre_or_post : str
+  pre_or_post_or_visso : str
       "pre", "post", or "visso" to properly assign the new label
 
   Returns:
@@ -102,7 +106,8 @@ def split_df_into_class_dependent_frames(df, num_classes, pre_or_post):
   """
 
   # Rename the label column and sort the DataFrame by 'trace_start_time'
-  df = df.rename(columns={'label': 'label_2classes'})
+  # df = df.rename(columns={'label': 'label_2classes'})
+  df = df.copy()
   df.sort_values(by='trace_start_time', inplace=True)
 
   # Function to create a label array with a 1 at the specified position
@@ -113,10 +118,10 @@ def split_df_into_class_dependent_frames(df, num_classes, pre_or_post):
 
   frames = []
 
-  if pre_or_post == "visso":
+  if shock_category == "visso":
     # Case for 'visso'
     # Copy the entire DataFrame into frames
-    visso_frame = df.copy()
+    visso_frame = df#.copy()
     visso_frame.reset_index(inplace=True)
 
     # Create a label DataFrame with the same number of rows
@@ -129,7 +134,7 @@ def split_df_into_class_dependent_frames(df, num_classes, pre_or_post):
     # Append the visso_frame to the frames list
     frames.append(visso_frame)
 
-  elif pre_or_post in ["pre", "post"]:
+  elif shock_category in ["pre", "post"]:
     # Case for 'pre' and 'post'
     # Determine the number of rows per sub-DataFrame
 
@@ -139,14 +144,14 @@ def split_df_into_class_dependent_frames(df, num_classes, pre_or_post):
 
     # Split the DataFrame into equal parts and process each part
     for c in range(num_pre_or_post_classes):
-      frame = df.iloc[c * rows_per_class: (c + 1) * rows_per_class].copy()
+      frame = df.iloc[c * rows_per_class: (c + 1) * rows_per_class]#.copy()
       frame.reset_index(inplace=True)
 
       labels = []
       for _ in range(len(frame)):
-        if pre_or_post == "pre":
+        if shock_category == "pre":
           label_array = create_label_array(num_classes, c)
-        elif pre_or_post == "post":
+        else:
           label_array = create_label_array(
             num_classes, num_pre_or_post_classes + c + post_idx_shift
           )
@@ -154,12 +159,13 @@ def split_df_into_class_dependent_frames(df, num_classes, pre_or_post):
       frame = frame.assign(label=labels)
       frames.append(frame)
   else:
-    raise ValueError("pre_or_post must be 'pre', 'visso', or 'post'")
+    raise ValueError(f"shock_category is {shock_category}"
+                     "but must be 'pre', 'post', or 'visso'")
   return frames
 
 
 
-def extract_input_target_from_dataframe(df):
+def extract_input_target_from_dataframe(df: pd.DataFrame):
 
   input_values = np.array(
     df.apply(lambda row: np.stack(
@@ -169,13 +175,18 @@ def extract_input_target_from_dataframe(df):
   input_values = einops.rearrange(input_values, 'b c l -> b l c')
   targets = np.array(df['label'].to_list())
 
-  return {'X': input_values, 'y': targets}
+  occurence_time = df['source_origin_time'].apply(
+    lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S')).to_list()
+
+
+  return {'X': input_values, 'y': targets, 'occurence_time': occurence_time}
 
 
 
 def train_val_test_split(
-  df, train_frac=0.70, val_frac=0.10, test_frac=0.20,
-  seed=42, verbose_events=False):
+  df: pd.DataFrame,
+  train_frac=0.70, val_frac=0.10, test_frac=0.20,
+  event_split_method='random', seed=42, verbose_events=False):
 
   """
   Split the dataset in train, val, and test folds.
@@ -185,23 +196,69 @@ def train_val_test_split(
   random. It is to avoid the possibility of model shortcuts in time content.
   """
 
+  assert train_frac + val_frac + test_frac <= 1, (
+    "The sum of train_frac, val_frac, and test_frac must be less than or "
+    "equal to 1."
+  )
+
   seed_everything(seed)
 
-  # source_id are the identifications events;
-  # they distinguish one earthquake from another;
-  source_id_array = df['source_id'].unique()
-  source_id_array.sort()
+  if event_split_method == 'random':
+    # randomly assign events to train, val, and test
 
-  source_id_array = np.array(source_id_array)
+    # source_id are the identifications events;
+    # they distinguish one earthquake from another;
+    source_id_array = df['source_id'].unique()
+    source_id_array.sort()
 
-  np.random.shuffle(source_id_array)
+    source_id_array = np.array(source_id_array)
 
-  train_end = int(len(source_id_array) * train_frac)
-  val_end = int(len(source_id_array) * (train_frac + val_frac))
+    np.random.shuffle(source_id_array)
 
-  source_id_train = source_id_array[:train_end]
-  source_id_val = source_id_array[train_end:val_end]
-  source_id_test = source_id_array[val_end:]
+    train_end = int(len(source_id_array) * train_frac)
+    val_end = int(len(source_id_array) * (train_frac + val_frac))
+
+    source_id_train = source_id_array[:train_end]
+    source_id_val = source_id_array[train_end:val_end]
+    source_id_test = source_id_array[val_end:]
+
+  elif event_split_method == 'temporal':
+    # temporally assign events to train, val, and test.
+    num_classes = len(df.iloc[0]['label'])
+    frames_class = [
+      df[df['label'].apply(lambda x: x.index(max(x))) == i] for i in range(
+        num_classes)
+    ]
+
+    source_id_train = []
+    source_id_val = []
+    source_id_test = []
+
+    for df_frame in frames_class:
+      df_frame = df_frame.sort_values(by=['trace_start_time'])
+      source_id_array = df_frame['source_id'].unique()
+      # print(c, source_id_array)
+      n_traces_train = int(len(source_id_array) * train_frac)
+      n_traces_val = int(len(source_id_array) * val_frac)
+      n_traces_test = int(len(source_id_array) * test_frac)
+
+      train_split = int(n_traces_train / 2)
+      val_split = train_split + n_traces_val
+      test_split = val_split + n_traces_test
+
+      source_id_train_frame = np.concatenate(
+        (source_id_array[:train_split], source_id_array[-train_split:]),
+        axis=0
+      )
+      source_id_val_frame = source_id_array[train_split:val_split]
+      source_id_test_frame = source_id_array[val_split:test_split]
+
+      source_id_train.extend(source_id_train_frame.astype(int))
+      source_id_val.extend(source_id_val_frame.astype(int))
+      source_id_test.extend(source_id_test_frame.astype(int))
+
+  else:
+    raise ValueError("event_split_method must be 'random' or 'temporal'")
 
   if verbose_events:
     print("Events in train dataset: ",len(source_id_train))
@@ -223,19 +280,25 @@ def train_val_test_split(
 
 def create_foreshock_aftershock_datasets(
   num_classes,
-  data_path='/scicore/home/dokman0000/liu0003/projects/seisLM/data/wetransfer_classify_generic_norcia-py_2024-06-24_1530/',
-  station='NRCA',
+  event_split_method='random',
   train_frac=0.70,
   val_frac=0.10,
   test_frac=0.20,
   seed=42
   ):
 
-  df_pre = pd.read_pickle(data_path + 'dataframe_pre_'+ station + '.csv')
-  df_post = pd.read_pickle(data_path + 'dataframe_post_'+ station +'.csv')
+
+  df_pre = pd.read_pickle(
+    f'{DATA_DIR}/foreshock_aftershock_NRCA/dataframe_pre_NRCA.csv'
+  )
+  df_post = pd.read_pickle(
+    f'{DATA_DIR}/foreshock_aftershock_NRCA/dataframe_post_NRCA.csv'
+  )
 
   if num_classes % 2 == 1:
-    df_visso = pd.read_pickle(data_path+'dataframe_visso_'+ station +'.csv')
+    df_visso = pd.read_pickle(
+      f'{DATA_DIR}/foreshock_aftershock_NRCA/dataframe_visso_NRCA.csv'
+    )
   else:
     df_visso = None
 
@@ -247,14 +310,14 @@ def create_foreshock_aftershock_datasets(
     df = pd.concat([df_pre, df_post], ignore_index=True)
   else:
     frames_pre = split_df_into_class_dependent_frames(
-      df_pre, num_classes, pre_or_post="pre"
+      df_pre, num_classes, shock_category="pre"
     )
     frames_post = split_df_into_class_dependent_frames(
-      df_post, num_classes, pre_or_post="post"
+      df_post, num_classes, shock_category="post"
     )
     if isinstance(df_visso, pd.DataFrame):
       frames_visso = split_df_into_class_dependent_frames(
-        df_visso, num_classes, pre_or_post="visso"
+        df_visso, num_classes, shock_category="visso"
       )
       df=pd.concat(
         [pd.concat(frames_pre),pd.concat(frames_visso),pd.concat(frames_post)],
@@ -266,11 +329,12 @@ def create_foreshock_aftershock_datasets(
       )
 
   train_data, val_data, test_data = train_val_test_split(
-    df.copy(),
+    df=df,
     train_frac=train_frac,
     val_frac=val_frac,
     test_frac=test_frac,
-    seed=seed
+    event_split_method=event_split_method,
+    seed=seed,
   )
 
   datasets = {
@@ -284,8 +348,6 @@ def create_foreshock_aftershock_datasets(
 def create_foreshock_aftershock_dataloaders(
   num_classes,
   batch_size,
-  data_path='/scicore/home/dokman0000/liu0003/projects/seisLM/data/wetransfer_classify_generic_norcia-py_2024-06-24_1530/',
-  station='NRCA',
   seed=42,
   train_frac=0.70,
   val_frac=0.10,
@@ -296,8 +358,6 @@ def create_foreshock_aftershock_dataloaders(
 
   datasets = create_foreshock_aftershock_datasets(
     num_classes=num_classes,
-    data_path=data_path,
-    station=station,
     seed=seed,
     train_frac=train_frac,
     val_frac=val_frac,

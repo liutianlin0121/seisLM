@@ -5,17 +5,15 @@ import pandas as pd
 from lightning import seed_everything
 from seisLM.data_pipeline import foreshock_aftershock_dataset as myu
 from seisLM.data_pipeline import ref_foreshock_aftershock_dataset as u
+from seisLM.utils.project_path import DATA_DIR
 
 dataToProcess = "NRCA"
 seed = 42
-path = '/scicore/home/dokman0000/liu0003/projects/seisLM/data/wetransfer_classify_generic_norcia-py_2024-06-24_1530/'
-
-train_percentage = 0.7
-val_percentage = 0.10
-test_percentatge = 0.20
+path = f'{DATA_DIR}/foreshock_aftershock_NRCA/'
 
 
-def laurenti_preprocess(num_classes, train_frac, val_frac, test_frac, seed):
+def laurenti_preprocess(
+  num_classes, seed, split_random):
   force_traces_in_test=[]
   seed_everything(seed)
   df_empty = pd.DataFrame(columns = [
@@ -80,38 +78,36 @@ def laurenti_preprocess(num_classes, train_frac, val_frac, test_frac, seed):
   (_, X_train, y_train, _, X_val, y_val, _, X_test, y_test, _
    ) = u.train_val_test_split(
     df.copy(),
-    split_random=True,
+    split_random=split_random,
   )
   return X_train, y_train, X_val, y_val, X_test, y_test
 
-for num_classes in [2, 4, 9]:
-  datasets = myu.create_foreshock_aftershock_datasets(
-    num_classes=num_classes,
-    train_frac=train_percentage,
-    val_frac=val_percentage,
-    test_frac=test_percentatge,
-    seed=seed
-  )
+for split_random in [False, True]:
+  for num_classes in [2, 4, 9]:
+    print(f'split_random={split_random}, num_classes={num_classes}')
+    datasets = myu.create_foreshock_aftershock_datasets(
+      num_classes=num_classes,
+      seed=seed,
+      event_split_method='random' if split_random else 'temporal',
+    )
 
-  train_data, val_data, test_data = datasets['train'], datasets['val'], datasets['test']
+    train_data, val_data, test_data = datasets['train'], datasets['val'], datasets['test']
 
-  X_train, y_train, X_val, y_val, X_test, y_test = laurenti_preprocess(
-    num_classes=num_classes,
-    train_frac=train_percentage,
-    val_frac=val_percentage,
-    test_frac=test_percentatge,
-    seed=seed
-  )
+    X_train, y_train, X_val, y_val, X_test, y_test = laurenti_preprocess(
+      num_classes=num_classes,
+      seed=seed,
+      split_random=split_random,
+    )
 
-  np.testing.assert_array_equal(X_train, train_data['X'])
-  np.testing.assert_array_equal(y_train, train_data['y'])
+    np.testing.assert_array_equal(X_train, train_data['X'])
+    np.testing.assert_array_equal(y_train, train_data['y'])
 
-  np.testing.assert_array_equal(X_val, val_data['X'])
-  np.testing.assert_array_equal(y_val, val_data['y'])
+    np.testing.assert_array_equal(X_val, val_data['X'])
+    np.testing.assert_array_equal(y_val, val_data['y'])
 
 
-  np.testing.assert_array_equal(X_test, test_data['X'])
-  np.testing.assert_array_equal(y_test, test_data['y'])
+    np.testing.assert_array_equal(X_test, test_data['X'])
+    np.testing.assert_array_equal(y_test, test_data['y'])
 
 
 

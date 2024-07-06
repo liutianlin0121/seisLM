@@ -33,6 +33,7 @@ def create_folder_if_not_exists(path):
     except OSError as error:
       print(f"Error creating folder: {error}")
 
+DATA_DIR = os.path.join(gitdir(), 'data')
 MODEL_SAVE_DIR = os.path.join(gitdir(), 'results/models')
 EVAL_SAVE_DIR = os.path.join(gitdir(), 'results/evaluation')
 FIGURE_DIR = os.path.join(gitdir(), 'results/figures')
