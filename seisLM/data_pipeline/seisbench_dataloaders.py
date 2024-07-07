@@ -139,6 +139,3 @@ def prepare_seisbench_dataloaders(
   )
 
   return train_loader, dev_loader
-
-
-

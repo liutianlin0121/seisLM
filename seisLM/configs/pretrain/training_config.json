@@ -2,7 +2,7 @@
   "adam_beta1": 0.9,
   "adam_beta2": 0.999,
   "adam_epsilon": 1e-08,
-  "cache_dataset": "full",
+  "cache_dataset": null,
   "data_name": [
     "ETHZ",
     "GEOFON",
@@ -19,7 +19,7 @@
   "mask_time_prob": 0.65,
   "max_gumbel_temperature": 2.0,
   "min_gumbel_temperature": 0.5,
-  "num_train_epochs": 20,
+  "num_train_epochs": 40,
   "precision": "16-mixed",
   "prefetch_factor": 2,
   "seed": 42,

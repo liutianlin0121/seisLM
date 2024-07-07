@@ -1,7 +1,8 @@
 #!/bin/bash
 
 JOB_NAME="pretrain"
-TEST_RUN=true
+# TEST_RUN=true
+TEST_RUN=false
 CONFIG_DIR="/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs"
 SCRIPT_NAME="pretrain_slurm.sh"
 
@@ -29,8 +30,8 @@ if [ "$TEST_RUN" = true ]; then
 EOT
 else
   cat <<EOT >> $SCRIPT_NAME
-#SBATCH --qos=1day              # Selected queue to allocate your job
-#SBATCH --time=1-00:00:00       # Maximum allocated time
+#SBATCH --qos=1week              # Selected queue to allocate your job
+#SBATCH --time=7-00:00:00       # Maximum allocated time
 EOT
 fi
 

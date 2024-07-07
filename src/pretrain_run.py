@@ -13,7 +13,7 @@ from lightning.pytorch.loggers import WandbLogger
 from transformers import Wav2Vec2Config
 from seisLM.model.foundation.pretrained_models import LitMultiDimWav2Vec2
 from seisLM.data_pipeline import collator
-from seisLM.data_pipeline import dataloaders
+from seisLM.data_pipeline import seisbench_dataloaders as dataloaders
 from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
@@ -53,7 +53,8 @@ def train_self_supervised(model_config, training_config, test_run):
   )
 
   training_config.max_train_steps = training_config.num_train_epochs * len(
-    train_loader)
+    train_loader
+  )
 
   checkpoint_callback = ModelCheckpoint(
       monitor='val/loss',
