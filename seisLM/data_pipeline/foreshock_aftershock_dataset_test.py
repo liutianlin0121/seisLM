@@ -12,6 +12,15 @@ seed = 42
 path = f'{DATA_DIR}/foreshock_aftershock_NRCA/'
 
 
+def convert_to_one_hot(array, num_classes):
+  # Determine the number of unique classes
+  num_classes = np.max(array) + 1
+
+  # Convert to one-hot encoding
+  one_hot_encoded = np.eye(num_classes)[array]
+  return one_hot_encoded
+
+
 def laurenti_preprocess(
   num_classes, seed, split_random):
   force_traces_in_test=[]
@@ -100,14 +109,20 @@ for split_random in [False, True]:
     )
 
     np.testing.assert_array_equal(X_train, train_data['X'])
-    np.testing.assert_array_equal(y_train, train_data['y'])
+    np.testing.assert_array_equal(
+      y_train, convert_to_one_hot(train_data['y'], num_classes)
+    )
 
     np.testing.assert_array_equal(X_val, val_data['X'])
-    np.testing.assert_array_equal(y_val, val_data['y'])
+    np.testing.assert_array_equal(
+      y_val, convert_to_one_hot(val_data['y'], num_classes)
+    )
 
 
     np.testing.assert_array_equal(X_test, test_data['X'])
-    np.testing.assert_array_equal(y_test, test_data['y'])
+    np.testing.assert_array_equal(
+      y_test, convert_to_one_hot(test_data['y'],num_classes)
+    )
 
 
 

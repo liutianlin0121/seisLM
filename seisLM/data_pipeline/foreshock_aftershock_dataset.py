@@ -84,10 +84,10 @@ def equallize_dataset_length(
 
 
 # Function to create a label array with a 1 at the specified position
-def create_label_array(num_classes, position):
-  label_array = [0] * num_classes
-  label_array[position] = 1
-  return label_array
+# def create_label_array(num_classes, position):
+#   label_array = [0] * num_classes
+#   label_array[position] = 1
+#   return label_array
 
 
 def equip_shock_dfs_with_class_labels(
@@ -117,7 +117,8 @@ def equip_shock_dfs_with_class_labels(
     df_visso.reset_index(inplace=True)
 
     # Create a label DataFrame with the same number of rows
-    labels = [create_label_array(num_classes, num_classes // 2)] * len(df_visso)
+    # labels = [create_label_array(num_classes, num_classes // 2)] * len(df_visso)
+    labels = [num_classes // 2] * len(df_visso)
 
     # Assign the label DataFrame to the visso_frame
     df_visso = df_visso.assign(label=labels)
@@ -133,8 +134,9 @@ def equip_shock_dfs_with_class_labels(
       frame = df.iloc[c * rows_per_class: (c + 1) * rows_per_class].reset_index(
         drop=True)
       label_position = c + offset
-      frame['label'] = [create_label_array(num_classes, label_position)] * len(
-        frame)
+      # frame['label'] = [create_label_array(num_classes, label_position)] * len(
+      #   frame)
+      frame['label'] = [label_position] * len(frame)
       frames.append(frame)
     return pd.concat(frames, ignore_index=True)
 
@@ -165,6 +167,7 @@ def extract_input_target_from_dataframe(
 
 def train_val_test_split(
   df: pd.DataFrame,
+  num_classes: int,
   train_frac=0.70, val_frac=0.10, test_frac=0.20,
   event_split_method='random', seed=42, verbose_events=False
   ) -> Tuple[Dict[str, Union[np.ndarray, str]],
@@ -207,11 +210,13 @@ def train_val_test_split(
 
   elif event_split_method == 'temporal':
     # temporally assign events to train, val, and test.
-    num_classes = len(df.iloc[0]['label'])
+
     frames_class = [
-      df[df['label'].apply(lambda x: x.index(max(x))) == i] for i in range(
-        num_classes)
+      # df[df['label'].apply(lambda x: x.index(max(x))) == i] for i in range(
+      #   num_classes)
+      df[df['label'] == i] for i in range(num_classes)
     ]
+
 
     source_id_train = []
     source_id_val = []
@@ -287,8 +292,9 @@ def create_foreshock_aftershock_datasets(
     df_pre, df_visso, df_post, num_classes, seed=seed
   )
 
-  if num_classes==2:
+  if num_classes == 2:
     df = pd.concat([df_pre, df_post], ignore_index=True)
+    df['label'] = df['label'].apply(lambda x: x.index(max(x)))
   else:
     df_tuple_pre_visso_post = equip_shock_dfs_with_class_labels(
       df_pre, df_visso, df_post, num_classes
@@ -300,6 +306,7 @@ def create_foreshock_aftershock_datasets(
 
   train_data, val_data, test_data = train_val_test_split(
     df=df,
+    num_classes=num_classes,
     train_frac=train_frac,
     val_frac=val_frac,
     test_frac=test_frac,
