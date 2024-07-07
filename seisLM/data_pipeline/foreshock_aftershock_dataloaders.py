@@ -51,23 +51,24 @@ def prepare_foreshock_aftershock_dataloaders(
   X_val, y_val = torch.from_numpy(X_val), torch.from_numpy(y_val)
   X_test, y_test = torch.from_numpy(X_test), torch.from_numpy(y_test)
 
+
   loaders = {
     'train': torch.utils.data.DataLoader(
-      torch.utils.data.TensorDataset(X_train.float(), y_train.float()),
+      torch.utils.data.TensorDataset(X_train.float(), y_train),
       batch_size=batch_size,
       shuffle=True,
       pin_memory=True,
       num_workers=num_workers,
     ),
     'val': torch.utils.data.DataLoader(
-      torch.utils.data.TensorDataset(X_val.float(), y_val.float()),
+      torch.utils.data.TensorDataset(X_val.float(), y_val),
       batch_size=batch_size,
       shuffle=False,
       pin_memory=True,
       num_workers=num_workers,
     ),
     'test': torch.utils.data.DataLoader(
-      torch.utils.data.TensorDataset(X_test.float(), y_test.float()),
+      torch.utils.data.TensorDataset(X_test.float(), y_test),
       batch_size=batch_size,
       shuffle=False,
       pin_memory=True,

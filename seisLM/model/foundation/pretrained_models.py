@@ -46,7 +46,7 @@ class LitMultiDimWav2Vec2(L.LightningModule):
 
     self.model.set_gumbel_temperature(gumbel_temperature)
 
-    self.log("train/loss", loss, sync_dist=True, prog_bar=True)
+    self.log("train/loss", loss, sync_dist=True, prog_bar=True, on_step=True)
 
     train_logs = {
         "train/constrast_loss": outputs.contrastive_loss / num_losses,
