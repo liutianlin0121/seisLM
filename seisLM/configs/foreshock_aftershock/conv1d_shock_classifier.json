@@ -2,7 +2,7 @@
   "model": "Conv1DShockClassifier",
   "data_args": {
     "num_workers": 8,
-    "batch_size": 32,
+    "batch_size": 64,
     "train_frac": 0.7,
     "val_frac": 0.10,
     "test_frac": 0.20,
@@ -14,14 +14,16 @@
     "devices": 2,
     "strategy": "ddp",
     "accelerator": "gpu",
-    "max_epochs": 10
+    "max_epochs": 50
   },
   "model_args": {
     "in_channels": 3,
-    "num_classes": 2,
+    "num_classes": 8,
     "num_layers": 5,
     "initial_filters": 32,
     "kernel_size": 3,
-    "learning_rate": 1e-4
+    "learning_rate": 1e-3,
+    "weight_decay": 1e-4,
+    "dropout_rate": 0.0
   }
 }

@@ -5,7 +5,14 @@ import torchmetrics
 import lightning as L
 
 class DoubleConvBlock(nn.Module):
-  def __init__(self, in_channels, out_channels, kernel_size):
+  """Two conv layers with batchnorm and ReLU activation, like in a 1d U-Net."""
+  def __init__(
+    self,
+    in_channels: int,
+    out_channels: int,
+    kernel_size: int,
+    dropout_rate: float = 0.1
+    ):
     super(DoubleConvBlock, self).__init__()
 
     conv_shared_kwargs = {
@@ -16,26 +23,31 @@ class DoubleConvBlock(nn.Module):
     }
 
     self.double_conv = nn.Sequential(
-      nn.Conv1d(in_channels=in_channels, stride=2, **conv_shared_kwargs),
+      nn.Conv1d(in_channels=in_channels, stride=1, **conv_shared_kwargs),
       nn.BatchNorm1d(out_channels),
-      nn.ReLU(inplace=True),
-      nn.Conv1d(in_channels=out_channels, stride=1, **conv_shared_kwargs),
+      nn.GELU(),
+      nn.Dropout(dropout_rate),
+      nn.Conv1d(in_channels=out_channels, stride=2, **conv_shared_kwargs),
       nn.BatchNorm1d(out_channels),
-      nn.ReLU(inplace=True),
+      nn.GELU(),
+      nn.Dropout(dropout_rate),
     )
 
   def forward(self, x):
     x = self.double_conv(x)
     return x
 
+
 class Conv1DShockClassifier(nn.Module):
+  """A simple 1D conv classifier for foreshock-aftershock classification."""
   def __init__(
     self,
-    in_channels,
-    num_classes,
-    num_layers=3,
-    initial_filters=16,
-    kernel_size=3
+    in_channels: int,
+    num_classes: int,
+    num_layers: int = 3,
+    initial_filters: int = 16,
+    kernel_size: int = 3,
+    dropout_rate: float = 0.1
   ):
     super(Conv1DShockClassifier, self).__init__()
     self.num_classes = num_classes
@@ -44,7 +56,9 @@ class Conv1DShockClassifier(nn.Module):
     layers = []
     for i in range(num_layers):
       out_channels = initial_filters * (2 ** i)
-      layers.append(DoubleConvBlock(in_channels, out_channels, kernel_size))
+      layers.append(
+        DoubleConvBlock(in_channels, out_channels, kernel_size, dropout_rate)
+      )
       in_channels = out_channels
 
     self.conv_encoder = nn.Sequential(*layers)
@@ -60,25 +74,25 @@ class Conv1DShockClassifier(nn.Module):
 
 
 class Conv1DShockClassifierLit(L.LightningModule):
+  """ A LightningModule for the Conv1DShockClassifier model. """
   def __init__(
     self,
-    in_channels,
-    num_classes,
-    num_layers,
-    initial_filters,
-    kernel_size,
-    learning_rate
+    model_config,
+    max_train_steps: int,
     ):
     super().__init__()
     self.save_hyperparameters()
-    self.learning_rate = learning_rate
+    self.model_config = model_config
+    self.max_train_steps = max_train_steps
+
     self.model = Conv1DShockClassifier(
-      in_channels=in_channels,
-      num_classes=num_classes,
-      num_layers=num_layers,
-      initial_filters=initial_filters,
-      kernel_size=kernel_size
+      in_channels=model_config.in_channels,
+      num_classes=model_config.num_classes,
+      num_layers=model_config.num_layers,
+      initial_filters=model_config.initial_filters,
+      kernel_size=model_config.kernel_size
     )
+
     num_classes = self.model.num_classes
     self.train_acc = torchmetrics.Accuracy(
       task="multiclass", num_classes=num_classes
@@ -103,6 +117,8 @@ class Conv1DShockClassifierLit(L.LightningModule):
 
     self.log("train/loss", loss, sync_dist=True, prog_bar=True, on_step=True)
     self.log("train/acc", self.train_acc, sync_dist=True, prog_bar=True)
+
+    # self.log("self.trainer.num_devices", self.trainer.num_devices, prog_bar=True)
     return loss  # this is passed to the optimizer for training
 
   def validation_step(self, batch, batch_idx):
@@ -126,6 +142,20 @@ class Conv1DShockClassifierLit(L.LightningModule):
 
   def configure_optimizers(self):
     optimizer = torch.optim.Adam(
-        self.trainer.model.parameters(), lr=self.learning_rate
+        self.trainer.model.parameters(),
+        lr=self.model_config.learning_rate,
+        weight_decay=self.model_config.weight_decay,
     )
-    return optimizer
+    tmax = int(self.max_train_steps // self.trainer.num_devices)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+      optimizer, T_max=tmax
+    )
+    # return optimizer, scheduler
+    # return {"optimizer": optimizer, "lr_scheduler": scheduler}
+    sched_config = {
+        'scheduler': scheduler,
+        'interval': "step",
+        'frequency': 1,
+    }
+
+    return {"optimizer": optimizer, "lr_scheduler": sched_config}
