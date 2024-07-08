@@ -63,13 +63,27 @@ class Conv1DShockClassifier(nn.Module):
 
     self.conv_encoder = nn.Sequential(*layers)
     self.global_pool = nn.AdaptiveAvgPool1d(1)
-    self.fc = nn.Linear(out_channels, num_classes)
+    self.fc1 = nn.Sequential(
+      nn.Linear(out_channels, out_channels),
+      nn.BatchNorm1d(out_channels),
+      nn.GELU(),
+      nn.Dropout(dropout_rate),
+    )
+    self.fc2 = nn.Sequential(
+      nn.Linear(out_channels, out_channels),
+      nn.BatchNorm1d(out_channels),
+      nn.GELU(),
+      nn.Dropout(dropout_rate),
+    )
+    self.fc3 = nn.Linear(out_channels, num_classes)
 
   def forward(self, x):
     x = self.conv_encoder(x)
     x = self.global_pool(x)
     x = x.view(x.size(0), -1)
-    x = self.fc(x)
+    x = self.fc1(x) + x
+    x = self.fc2(x) + x
+    x = self.fc3(x)
     return x
 
 

@@ -9,6 +9,7 @@ import argparse
 import traceback
 import os
 import json
+import wandb
 import time
 import torch
 from ml_collections import config_dict
@@ -99,7 +100,7 @@ def train_foreshock_aftershock(config, task_name):
 
   trainer.fit(model, loaders['train'], loaders['val'])
   trainer.test(ckpt_path="best", dataloaders=loaders['test'])
-
+  wandb.finish()
 
 if __name__ == "__main__":
   torch.backends.cudnn.benchmark = True
