@@ -71,7 +71,6 @@ def train_foreshock_aftershock(config, task_name):
   if slurm_job_id:
     logger.log_hyperparams({"slurm_job_id": slurm_job_id})
 
-  # logger.log_hyperparams(model.hparams)
   logger.log_hyperparams(config.to_dict())
 
   checkpoint_callback = ModelCheckpoint(

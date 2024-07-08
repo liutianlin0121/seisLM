@@ -63,27 +63,13 @@ class Conv1DShockClassifier(nn.Module):
 
     self.conv_encoder = nn.Sequential(*layers)
     self.global_pool = nn.AdaptiveAvgPool1d(1)
-    self.fc1 = nn.Sequential(
-      nn.Linear(out_channels, out_channels),
-      nn.BatchNorm1d(out_channels),
-      nn.GELU(),
-      nn.Dropout(dropout_rate),
-    )
-    self.fc2 = nn.Sequential(
-      nn.Linear(out_channels, out_channels),
-      nn.BatchNorm1d(out_channels),
-      nn.GELU(),
-      nn.Dropout(dropout_rate),
-    )
-    self.fc3 = nn.Linear(out_channels, num_classes)
+    self.fc = nn.Linear(out_channels, num_classes)
 
   def forward(self, x):
     x = self.conv_encoder(x)
     x = self.global_pool(x)
     x = x.view(x.size(0), -1)
-    x = self.fc1(x) + x
-    x = self.fc2(x) + x
-    x = self.fc3(x)
+    x = self.fc(x)
     return x
 
 
@@ -132,7 +118,6 @@ class Conv1DShockClassifierLit(L.LightningModule):
     self.log("train/loss", loss, sync_dist=True, prog_bar=True, on_step=True)
     self.log("train/acc", self.train_acc, sync_dist=True, prog_bar=True)
 
-    # self.log("self.trainer.num_devices", self.trainer.num_devices, prog_bar=True)
     return loss  # this is passed to the optimizer for training
 
   def validation_step(self, batch, batch_idx):
@@ -155,7 +140,7 @@ class Conv1DShockClassifierLit(L.LightningModule):
     self.log("test/acc", self.test_acc, sync_dist=True, prog_bar=True)
 
   def configure_optimizers(self):
-    optimizer = torch.optim.Adam(
+    optimizer = torch.optim.AdamW(
         self.trainer.model.parameters(),
         lr=self.model_config.learning_rate,
         weight_decay=self.model_config.weight_decay,
@@ -164,8 +149,6 @@ class Conv1DShockClassifierLit(L.LightningModule):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
       optimizer, T_max=tmax
     )
-    # return optimizer, scheduler
-    # return {"optimizer": optimizer, "lr_scheduler": scheduler}
     sched_config = {
         'scheduler': scheduler,
         'interval': "step",
