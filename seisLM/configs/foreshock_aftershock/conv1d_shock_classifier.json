@@ -14,16 +14,16 @@
     "devices": 2,
     "strategy": "ddp",
     "accelerator": "gpu",
-    "max_epochs": 50
+    "max_epochs": 100
   },
   "model_args": {
     "in_channels": 3,
     "num_classes": 8,
-    "num_layers": 5,
+    "num_layers": 3,
     "initial_filters": 32,
     "kernel_size": 3,
     "learning_rate": 1e-3,
-    "weight_decay": 1e-2,
+    "weight_decay": 0.1,
     "dropout_rate": 0.0
   }
 }

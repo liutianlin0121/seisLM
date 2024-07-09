@@ -11,7 +11,7 @@ class DoubleConvBlock(nn.Module):
     in_channels: int,
     out_channels: int,
     kernel_size: int,
-    dropout_rate: float = 0.1
+    dropout_rate: float
     ):
     super(DoubleConvBlock, self).__init__()
 
@@ -44,10 +44,10 @@ class Conv1DShockClassifier(nn.Module):
     self,
     in_channels: int,
     num_classes: int,
-    num_layers: int = 3,
-    initial_filters: int = 16,
-    kernel_size: int = 3,
-    dropout_rate: float = 0.1
+    num_layers: int,
+    initial_filters: int,
+    kernel_size: int,
+    dropout_rate: float
   ):
     super(Conv1DShockClassifier, self).__init__()
     self.num_classes = num_classes
@@ -90,7 +90,8 @@ class Conv1DShockClassifierLit(L.LightningModule):
       num_classes=model_config.num_classes,
       num_layers=model_config.num_layers,
       initial_filters=model_config.initial_filters,
-      kernel_size=model_config.kernel_size
+      kernel_size=model_config.kernel_size,
+      dropout_rate=model_config.dropout_rate
     )
 
     num_classes = self.model.num_classes

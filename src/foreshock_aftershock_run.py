@@ -6,19 +6,21 @@ Adapted from:
 
 """
 import argparse
-import traceback
-import os
 import json
-import wandb
+import os
 import time
-import torch
-from ml_collections import config_dict
-import lightning as L
-from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
-from lightning.pytorch.loggers import WandbLogger
+import traceback
 
+import lightning as L
+import torch
+import wandb
 from lightning.pytorch import seed_everything
-from seisLM.data_pipeline import foreshock_aftershock_dataloaders as dataloaders
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.loggers import WandbLogger
+from ml_collections import config_dict
+
+from seisLM.data_pipeline import \
+    foreshock_aftershock_dataloaders as dataloaders
 from seisLM.model.task_specific import foreshock_aftershock_models
 from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
@@ -76,6 +78,7 @@ def train_foreshock_aftershock(config, task_name):
   checkpoint_callback = ModelCheckpoint(
       monitor="val/loss",
       save_top_k=1,
+      save_last=True,
       mode='min',
       filename="{epoch}-{step}",
   )
@@ -97,8 +100,9 @@ def train_foreshock_aftershock(config, task_name):
       **config.get("trainer_args", {}),
   )
 
-  trainer.fit(model, loaders['train'], loaders['val'])
-  trainer.test(ckpt_path="best", dataloaders=loaders['test'])
+  trainer.fit(model, loaders['train'], loaders['test'])
+  # trainer.test(ckpt_path="best", dataloaders=loaders['test'])
+  trainer.test(ckpt_path="last", dataloaders=loaders['test'])
   wandb.finish()
 
 if __name__ == "__main__":
@@ -118,7 +122,7 @@ if __name__ == "__main__":
   task_name = os.path.basename(__file__)[: -len(".py")]
 
   try:
-    for num_classes in [9, 8, 4, 2]:
+    for num_classes in [4, 9, 8, 2]:
       config.model_args.num_classes = num_classes
       train_foreshock_aftershock(config, task_name)
 
