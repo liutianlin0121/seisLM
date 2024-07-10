@@ -1,18 +1,29 @@
-"Feature encoder"
+"""Feature encoders.
+
+Dimension key:
+
+B: batch size
+L: sequence length
+D: feature dimension
+"""
+from typing import Union
+
 import einops
-from torch import nn
+import ml_collections
+from jaxtyping import Float
+from torch import Tensor, nn
+
 
 class Wav2Vec2NoLayerNormConvLayer(nn.Module):
-  def __init__(self, config, layer_id=0):
+  """Convolutional layer with no layer normalization"""
+  def __init__(self, config: ml_collections.ConfigDict, layer_id: int = 0):
     super().__init__()
 
-    if layer_id > 0:
-      self.in_conv_dim = config.conv_dim[layer_id - 1]
-    else:
-      if hasattr(config, 'input_dim'):
-        self.in_conv_dim = config.input_dim
-      else:
-        self.in_conv_dim = 1
+    self.in_conv_dim = (
+        config.conv_dim[layer_id - 1] if layer_id > 0 else getattr(
+          config, 'input_dim', 1
+        )
+    )
 
     self.out_conv_dim = config.conv_dim[layer_id]
 
@@ -25,23 +36,26 @@ class Wav2Vec2NoLayerNormConvLayer(nn.Module):
     )
     self.activation = nn.functional.gelu
 
-  def forward(self, hidden_states):
+  def forward(
+    self,
+    hidden_states: Float[Tensor, "B D L1"]
+    ) -> Float[Tensor, "B D L2"]:
+
     hidden_states = self.conv(hidden_states)
     hidden_states = self.activation(hidden_states)
     return hidden_states
 
 
 class Wav2Vec2LayerNormConvLayer(nn.Module):
-  def __init__(self, config, layer_id=0):
+  """Convolutional layer with layer normalization"""
+  def __init__(self, config: ml_collections.ConfigDict, layer_id: int = 0):
     super().__init__()
-    if layer_id > 0:
-      self.in_conv_dim = config.conv_dim[layer_id - 1]
-    else:
-      if hasattr(config, 'input_dim'):
-        self.in_conv_dim = config.input_dim
-      else:
-        self.in_conv_dim = 1
 
+    self.in_conv_dim = (
+        config.conv_dim[layer_id - 1] if layer_id > 0 else getattr(
+          config, 'input_dim', 1
+        )
+    )
 
     self.out_conv_dim = config.conv_dim[layer_id]
 
@@ -57,7 +71,10 @@ class Wav2Vec2LayerNormConvLayer(nn.Module):
     )
     self.activation = nn.functional.gelu
 
-  def forward(self, hidden_states):
+  def forward(
+    self,
+    hidden_states: Float[Tensor, "B D L1"]
+    ) -> Float[Tensor, "B D L2"]:
     hidden_states = self.conv(hidden_states)
 
     hidden_states = hidden_states.transpose(-2, -1)
@@ -69,15 +86,15 @@ class Wav2Vec2LayerNormConvLayer(nn.Module):
 
 
 class Wav2Vec2GroupNormConvLayer(nn.Module):
-  def __init__(self, config, layer_id=0):
+  """Convolutional layer with group normalization"""
+  def __init__(self, config: ml_collections.ConfigDict, layer_id: int = 0):
     super().__init__()
-    if layer_id > 0:
-      self.in_conv_dim = config.conv_dim[layer_id - 1]
-    else:
-      if hasattr(config, 'input_dim'):
-        self.in_conv_dim = config.input_dim
-      else:
-        self.in_conv_dim = 1
+
+    self.in_conv_dim = (
+        config.conv_dim[layer_id - 1] if layer_id > 0 else getattr(
+          config, 'input_dim', 1
+        )
+    )
 
     self.out_conv_dim = config.conv_dim[layer_id]
 
@@ -96,7 +113,10 @@ class Wav2Vec2GroupNormConvLayer(nn.Module):
       affine=True
     )
 
-  def forward(self, hidden_states):
+  def forward(self,
+    hidden_states: Float[Tensor, "B D L1"]
+    ) -> Float[Tensor, "B D L2"]:
+
     hidden_states = self.conv(hidden_states)
     hidden_states = self.layer_norm(hidden_states)
     hidden_states = self.activation(hidden_states)
@@ -106,7 +126,7 @@ class Wav2Vec2GroupNormConvLayer(nn.Module):
 class Wav2Vec2FeatureEncoder(nn.Module):
   """Construct the features from raw audio waveform"""
 
-  def __init__(self, config):
+  def __init__(self, config: ml_collections.ConfigDict):
     super().__init__()
 
     if config.feat_extract_norm == "group":
@@ -117,7 +137,7 @@ class Wav2Vec2FeatureEncoder(nn.Module):
       ]
     elif config.feat_extract_norm == "layer":
       conv_layers = [
-          Wav2Vec2LayerNormConvLayer(
+          Wav2Vec2LayerNormConvLayer( # type: ignore[misc]
             config, layer_id=i) for i in range(config.num_feat_extract_layers)
       ]
     else:
@@ -129,15 +149,18 @@ class Wav2Vec2FeatureEncoder(nn.Module):
     self.gradient_checkpointing = False
     self._requires_grad = True
 
-  def _freeze_parameters(self):
+  def _freeze_parameters(self) -> None:
     for param in self.parameters():
       param.requires_grad = False
     self._requires_grad = False
 
-  def forward(self, input_values):
+  def forward(
+    self,
+    input_values: Union[Float[Tensor, "B C T1"], Float[Tensor, "B T1"]]
+    ) -> Float[Tensor, "B C T2"]:
     if input_values.dim() == 2:
       # hidden_states = input_values[:, None]
-      hidden_states = einops.rearrange(input_values, 'b t -> b 1 t')
+      hidden_states = einops.rearrange(input_values, 'B L -> B 1 L')
     else:
       assert input_values.dim() == 3
       hidden_states = input_values
@@ -147,12 +170,6 @@ class Wav2Vec2FeatureEncoder(nn.Module):
       hidden_states.requires_grad = True
 
     for conv_layer in self.conv_layers:
-      if self._requires_grad and self.gradient_checkpointing and self.training:
-        hidden_states = self._gradient_checkpointing_func(
-            conv_layer.__call__,
-            hidden_states,
-        )
-      else:
-        hidden_states = conv_layer(hidden_states)
+      hidden_states = conv_layer(hidden_states)
 
     return hidden_states

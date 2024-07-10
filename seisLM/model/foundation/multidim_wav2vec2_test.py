@@ -37,7 +37,7 @@ for evaluate in [True, False]:
         model.train()
       # compute masked indices
       batch_size, raw_sequence_length = input_values.shape
-      sequence_length = model._get_feat_extract_output_lengths(
+      sequence_length = model._get_feat_extract_output_lengths( # pylint: disable=protected-access
         raw_sequence_length).item()
 
       seed_everything(0)

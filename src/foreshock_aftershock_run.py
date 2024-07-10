@@ -27,8 +27,7 @@ from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
 
 def train_foreshock_aftershock(config, task_name):
-  """
-  Runs the model training defined by the config.
+  """Runs the model training defined by the config.
   """
   seed = config.get("seed", 42)
   seed_everything(seed)

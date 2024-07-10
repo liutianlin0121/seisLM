@@ -9,5 +9,9 @@
   "mypy-type-checker.args": [
     "--config-file",
     "/scicore/home/dokman0000/liu0003/projects/seisLM/mypy.ini"
-  ]
+  ],
+  "mypy-type-checker.severity": {
+    "error": "Warning",
+    "note": "Information"
+  }
 }
