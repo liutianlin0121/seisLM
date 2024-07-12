@@ -1,21 +1,59 @@
 """testing the multidim wav2vec model against the reference model"""
-import torch
-import numpy as np
-from lightning.pytorch import seed_everything
-import seisbench.data as sbd
+from typing import Any
 
-from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices, _sample_negative_indices
+import numpy as np
+import seisbench.data as sbd
+import torch
+from lightning.pytorch import seed_everything
 from transformers import Wav2Vec2Config
 from transformers import Wav2Vec2ForPreTraining as RefWav2Vec2ForPreTraining
-from seisLM.model.foundation.multidim_wav2vec2 import MultiDimWav2Vec2ForPreTraining
+from transformers.models.wav2vec2.modeling_wav2vec2 import (
+    _compute_mask_indices, _sample_negative_indices)
+
+from seisLM.model.foundation.multidim_wav2vec2 import \
+    MultiDimWav2Vec2ForPreTraining
+
+
+def compare_model_params(model: Any, ref_model: Any) -> bool:
+  model_params = dict(model.named_parameters())
+  ref_model_params = dict(ref_model.named_parameters())
+
+  # Check if both models have the same keys
+  if model_params.keys() != ref_model_params.keys():
+    print("Model parameter keys do not match!")
+    return False
+
+  # Check if all parameter values are the same
+  for key in model_params:
+    if not torch.equal(model_params[key], ref_model_params[key]):
+      print(f"Parameter values do not match for key: {key}")
+      return False
+
+  print("All parameter keys and values match.")
+  return True
+
 
 data = sbd.STEAD()
 waveforms = data.get_waveforms(1265656)
 input_values = torch.Tensor(waveforms[0]).unsqueeze(0)
 
-
+SEED = 42
 MODEL_NAMES = ["patrickvonplaten/wav2vec2-base-v2", "facebook/wav2vec2-base"]
 
+
+# Test the model parameters are the same at random initialization.
+for model_name in MODEL_NAMES:
+  config = Wav2Vec2Config.from_pretrained(model_name)
+
+  seed_everything(SEED)
+  model = RefWav2Vec2ForPreTraining(config)
+
+  seed_everything(SEED)
+  ref_model = RefWav2Vec2ForPreTraining(config)
+
+  assert compare_model_params(model, ref_model)
+
+# Test the model outputs are the same for the same input and same parameters.
 for evaluate in [True, False]:
   model_output = {}
   for model_name in MODEL_NAMES:

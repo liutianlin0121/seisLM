@@ -6,11 +6,8 @@ B: batch size
 L: sequence length
 D: feature dimension
 """
-from typing import Union
-
 import einops
 import ml_collections
-from jaxtyping import Float
 from torch import Tensor, nn
 
 
@@ -36,11 +33,9 @@ class Wav2Vec2NoLayerNormConvLayer(nn.Module):
     )
     self.activation = nn.functional.gelu
 
-  def forward(
-    self,
-    hidden_states: Float[Tensor, "B D L1"]
-    ) -> Float[Tensor, "B D L2"]:
+  def forward(self, hidden_states: Tensor) -> Tensor:
 
+    # hidden_states: [B, D, L]
     hidden_states = self.conv(hidden_states)
     hidden_states = self.activation(hidden_states)
     return hidden_states
@@ -71,10 +66,9 @@ class Wav2Vec2LayerNormConvLayer(nn.Module):
     )
     self.activation = nn.functional.gelu
 
-  def forward(
-    self,
-    hidden_states: Float[Tensor, "B D L1"]
-    ) -> Float[Tensor, "B D L2"]:
+  def forward(self, hidden_states: Tensor) -> Tensor:
+    # hidden_states: [B, D, L]
+
     hidden_states = self.conv(hidden_states)
 
     hidden_states = hidden_states.transpose(-2, -1)
@@ -113,9 +107,8 @@ class Wav2Vec2GroupNormConvLayer(nn.Module):
       affine=True
     )
 
-  def forward(self,
-    hidden_states: Float[Tensor, "B D L1"]
-    ) -> Float[Tensor, "B D L2"]:
+  def forward(self, hidden_states: Tensor,) -> Tensor:
+    # hidden_states: [B, D, L]
 
     hidden_states = self.conv(hidden_states)
     hidden_states = self.layer_norm(hidden_states)
@@ -154,12 +147,10 @@ class Wav2Vec2FeatureEncoder(nn.Module):
       param.requires_grad = False
     self._requires_grad = False
 
-  def forward(
-    self,
-    input_values: Union[Float[Tensor, "B C T1"], Float[Tensor, "B T1"]]
-    ) -> Float[Tensor, "B C T2"]:
+  def forward(self, input_values: Tensor) -> Tensor:
+    # hidden_states: [B, D, L] or [B, 1, L]
+
     if input_values.dim() == 2:
-      # hidden_states = input_values[:, None]
       hidden_states = einops.rearrange(input_values, 'B L -> B 1 L')
     else:
       assert input_values.dim() == 3
