@@ -2,6 +2,7 @@
 import math
 from typing import Optional, Tuple, Union
 import torch
+from torch import Tensor
 from torch import nn
 import numpy as np
 import ml_collections
@@ -14,18 +15,21 @@ from seisLM.model.foundation.quantizer import Wav2Vec2GumbelVectorQuantizer
 
 
 class Wav2Vec2FeatureProjection(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.layer_norm = nn.LayerNorm(config.conv_dim[-1], eps=config.layer_norm_eps)
-        self.projection = nn.Linear(config.conv_dim[-1], config.hidden_size)
-        self.dropout = nn.Dropout(config.feat_proj_dropout)
+  def __init__(self, config: ml_collections.ConfigDict):
+    super().__init__()
+    self.layer_norm = nn.LayerNorm(
+        config.conv_dim[-1], eps=config.layer_norm_eps
+    )
+    self.projection = nn.Linear(config.conv_dim[-1], config.hidden_size)
+    self.dropout = nn.Dropout(config.feat_proj_dropout)
 
-    def forward(self, hidden_states):
-        # non-projected hidden states are needed for quantization
-        norm_hidden_states = self.layer_norm(hidden_states)
-        hidden_states = self.projection(norm_hidden_states)
-        hidden_states = self.dropout(hidden_states)
-        return hidden_states, norm_hidden_states
+  def forward(self, hidden_states: Tensor) -> Tuple[Tensor, Tensor]:
+    # non-projected hidden states are needed for quantization
+    norm_hidden_states = self.layer_norm(hidden_states)
+    hidden_states = self.projection(norm_hidden_states)
+    hidden_states = self.dropout(hidden_states)
+    return hidden_states, norm_hidden_states
+
 
 class Wav2Vec2PreTrainedModel(PreTrainedModel):
   """
@@ -326,13 +330,11 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
       mask_time_indices: Optional[torch.FloatTensor] = None,
       output_attentions: Optional[bool] = None,
       output_hidden_states: Optional[bool] = None,
-      return_dict: Optional[bool] = None,
   ) -> Union[Tuple, modeling_outputs.Wav2Vec2BaseModelOutput]:
       output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
       output_hidden_states = (
           output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
       )
-      return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
       extract_features = self.feature_extractor(input_values)
       extract_features = extract_features.transpose(1, 2)
@@ -353,7 +355,6 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
           attention_mask=attention_mask,
           output_attentions=output_attentions,
           output_hidden_states=output_hidden_states,
-          return_dict=return_dict,
       )
 
     #   hidden_states = encoder_outputs[0]
@@ -362,8 +363,6 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
       if self.adapter is not None:
           hidden_states = self.adapter(hidden_states)
 
-      if not return_dict:
-          return (hidden_states, extract_features) + encoder_outputs[1:]
 
       return modeling_outputs.Wav2Vec2BaseModelOutput(
           last_hidden_state=hidden_states,
@@ -441,7 +440,6 @@ class MultiDimWav2Vec2ForPreTraining(Wav2Vec2PreTrainedModel):
         output_attentions=output_attentions,
         output_hidden_states=output_hidden_states,
         mask_time_indices=mask_time_indices,
-        return_dict=True,
     )
 
     # 1. project all transformed features (including masked) to final vq dim
