@@ -1,6 +1,6 @@
 
 """Attention-based feature encoder of Wav2Vec2"""
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 import ml_collections
 import einops
 import torch
@@ -76,7 +76,7 @@ class Wav2Vec2FeedForward(nn.Module):
     hidden_states = self.output_dropout(hidden_states)
     return hidden_states
 
-class Wav2Vec2EncoderBase(nn.Module):
+class Wav2Vec2EncoderBase(nn.Module): # pylint: disable=abstract-method
   """ Base Wav2Vec2 encoder.
 
   Contains the following:
@@ -116,7 +116,7 @@ class Wav2Vec2EncoderLayer(Wav2Vec2EncoderBase):
     *,
     attention_mask: Optional[Tensor],
     output_attentions: bool = False
-  )-> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+  )-> Union[Tuple[Tensor], Tuple[Tensor, Tensor]]:
 
     attn_residual = hidden_states
     hidden_states, attn_weights, _ = self.attention(
@@ -152,7 +152,7 @@ class Wav2Vec2EncoderLayerStableLayerNorm(Wav2Vec2EncoderBase):
       *,
       attention_mask: Optional[torch.Tensor] = None,
       output_attentions: bool = False,
-  )-> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+  )-> Union[Tuple[Tensor], Tuple[Tensor, Tensor]]:
     attn_residual = hidden_states
     hidden_states = self.layer_norm(hidden_states)
     hidden_states, attn_weights, _ = self.attention(
@@ -169,9 +169,9 @@ class Wav2Vec2EncoderLayerStableLayerNorm(Wav2Vec2EncoderBase):
     outputs = (hidden_states,)
 
     if output_attentions:
-      outputs += (attn_weights,) # type: ignore
+      outputs += (attn_weights,)
 
-    return outputs # type: ignore
+    return outputs
 
 
 class Wav2Vec2EncoderStableLayerNorm(nn.Module):
@@ -209,6 +209,7 @@ class Wav2Vec2EncoderStableLayerNorm(nn.Module):
       attention_mask = 1.0 - attention_mask[:, None, None, :].to(
         dtype=hidden_states.dtype)
       attention_mask = attention_mask * torch.finfo(hidden_states.dtype).min
+
       attention_mask = attention_mask.expand(
           attention_mask.shape[0], 1,
           attention_mask.shape[-1], attention_mask.shape[-1]
@@ -262,9 +263,9 @@ class Wav2Vec2Encoder(nn.Module):
       config.hidden_size, eps=config.layer_norm_eps
     )
     self.dropout = nn.Dropout(config.hidden_dropout)
+
     self.layers = nn.ModuleList(
-        [Wav2Vec2EncoderLayer(
-            config) for _ in range(config.num_hidden_layers)]
+        [Wav2Vec2EncoderLayer(config) for _ in range(config.num_hidden_layers)]
     ) # type: ignore
 
   def forward(
@@ -275,6 +276,9 @@ class Wav2Vec2Encoder(nn.Module):
       output_attentions: bool = False,
       output_hidden_states: bool = False,
   ) -> modeling_outputs.BaseModelOutput:
+
+    print("wav2vec2 hidden_states.shape", hidden_states.shape)
+    print("mask", attention_mask)
 
     all_hidden_states = () if output_hidden_states else None
     all_self_attentions = () if output_attentions else None

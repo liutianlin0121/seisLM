@@ -1,4 +1,7 @@
-"""testing the multidim wav2vec model against the reference model"""
+"""testing the multidim wav2vec model against the reference model
+
+TODO: add tests and refactor code that correspond to padding and masking.
+"""
 from typing import Any
 
 import numpy as np
@@ -12,6 +15,8 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
 
 from seisLM.model.foundation.multidim_wav2vec2 import \
     MultiDimWav2Vec2ForPreTraining
+
+from seisLM.model.foundation.mask_utils import get_feat_extract_output_lengths
 
 
 def compare_model_params(model: Any, ref_model: Any) -> bool:
@@ -75,8 +80,13 @@ for evaluate in [True, False]:
         model.train()
       # compute masked indices
       batch_size, raw_sequence_length = input_values.shape
-      sequence_length = model._get_feat_extract_output_lengths( # pylint: disable=protected-access
-        raw_sequence_length).item()
+
+      if model_type == 'ref':
+        sequence_length = model._get_feat_extract_output_lengths( # pylint: disable=protected-access
+          raw_sequence_length).item()
+      else:
+        sequence_length = get_feat_extract_output_lengths(
+          config, raw_sequence_length).item()
 
       seed_everything(0)
       mask_time_indices = _compute_mask_indices(
