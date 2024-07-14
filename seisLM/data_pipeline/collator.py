@@ -1,10 +1,12 @@
 """Data collator for Wav2Vec2ForPreTraining model."""
 from typing import Optional, Dict
 from dataclasses import dataclass
+import ml_collections
 import torch
 import numpy as np
-from transformers import Wav2Vec2ForPreTraining
 from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices, _sample_negative_indices
+from seisLM.model.foundation import mask_utils
+
 
 @dataclass
 class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
@@ -32,7 +34,8 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
         to the ``M`` variable mentioned there.
   """
 
-  model: Wav2Vec2ForPreTraining
+  # model: Wav2Vec2ForPreTraining
+  config: ml_collections.ConfigDict
   mask_time_prob: Optional[float] = 0.65
   mask_time_length: Optional[int] = 10
 
@@ -49,8 +52,9 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
     batch["input_values"] = features
     device = batch["input_values"].device
 
-    # computes the output length of the convolutional layers
-    mask_indices_seq_length = self.model._get_feat_extract_output_lengths(
+    # computes the output length of the convoluional layers
+    mask_indices_seq_length = mask_utils._get_feat_extract_output_lengths(
+      self.config,
       seq_length
     )
 
@@ -68,7 +72,7 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
     # sample negative indices
     sampled_negative_indices = _sample_negative_indices(
         features_shape,
-        self.model.config.num_negatives,
+        self.config.num_negatives,
         mask_time_indices=mask_time_indices,
     )
     batch["attention_mask"] = torch.ones(

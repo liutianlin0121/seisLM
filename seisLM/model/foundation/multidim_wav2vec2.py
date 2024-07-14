@@ -1,16 +1,15 @@
 """Wav2Vec2 model configuration."""
-import math
 from typing import Optional, Tuple, Union
 import torch
 from torch import Tensor
 from torch import nn
 import ml_collections
-from transformers import PreTrainedModel
 from seisLM.model.foundation import modeling_outputs
 from seisLM.model.foundation.conv_encoder import Wav2Vec2FeatureEncoder
 from seisLM.model.foundation import transformer_encoder
 from seisLM.model.foundation.quantizer import Wav2Vec2GumbelVectorQuantizer
 import seisLM.model.foundation.mask_utils as mask_utils
+from seisLM.model.foundation import initialization
 
 class Wav2Vec2FeatureProjection(nn.Module):
   """Projects the extracted features to the model's hidden size."""
@@ -39,67 +38,11 @@ class Wav2Vec2FeatureProjection(nn.Module):
     return hidden_states, norm_hidden_states
 
 
-class Wav2Vec2PreTrainedModel(PreTrainedModel):
-  """
-  An abstract class to handle weights initialization and
-  a simple interface for downloading and loading pretrained
-  models.
-  """
-
-  config = ml_collections.ConfigDict
-  base_model_prefix = "wav2vec2"
-  main_input_name = "input_values"
-  supports_gradient_checkpointing = True
-  _supports_flash_attn_2 = True
-  _supports_sdpa = True
-
-  def _init_weights(self, module: nn.Module) -> None:
-    """Initialize the weights"""
-    # Wav2Vec2ForPreTraining last 2 linear layers need standard Linear init.
-    if isinstance(module, MultiDimWav2Vec2ForPreTraining):
-      module.project_hid.reset_parameters()
-      module.project_q.reset_parameters()
-      # module.project_hid._is_hf_initialized = True
-      # module.project_q._is_hf_initialized = True
-    # gumbel softmax requires special init
-    elif isinstance(module, Wav2Vec2GumbelVectorQuantizer):
-      module.weight_proj.weight.data.normal_(mean=0.0, std=1)
-      module.weight_proj.bias.data.zero_()
-      nn.init.uniform_(module.codevectors)
-    elif isinstance(module, transformer_encoder.Wav2Vec2PositionalConvEmbedding):
-      nn.init.normal_(
-          module.conv.weight,
-          mean=0,
-          std=2 * math.sqrt(1 / (
-            module.conv.kernel_size[0] * module.conv.in_channels
-          )),
-      )
-      nn.init.constant_(module.conv.bias, 0)
-    elif isinstance(module, Wav2Vec2FeatureProjection):
-      k = math.sqrt(1 / module.projection.in_features)
-      nn.init.uniform_(module.projection.weight, a=-k, b=k)
-      nn.init.uniform_(module.projection.bias, a=-k, b=k)
-    elif isinstance(module, nn.Linear):
-      module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
-
-      if module.bias is not None:
-        module.bias.data.zero_()
-    elif isinstance(module, (nn.LayerNorm, nn.GroupNorm)):
-      module.bias.data.zero_()
-      module.weight.data.fill_(1.0)
-    elif isinstance(module, nn.Conv1d):
-      nn.init.kaiming_normal_(module.weight)
-
-      if module.bias is not None:
-        k = math.sqrt(module.groups / (
-          module.in_channels * module.kernel_size[0])
-        )
-        nn.init.uniform_(module.bias, a=-k, b=k)
-
-
-class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
+# class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
+class Wav2Vec2Model(nn.Module):
   def __init__(self, config: ml_collections.ConfigDict):
-    super().__init__(config)
+    # super().__init__(config)
+    super().__init__()
     self.config = config
     self.feature_extractor = Wav2Vec2FeatureEncoder(config)
     self.feature_projection = Wav2Vec2FeatureProjection(config)
@@ -116,7 +59,10 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
       self.encoder = transformer_encoder.Wav2Vec2Encoder(config)
 
     # Initialize weights and apply final processing
-    self.post_init()
+    self.apply(
+      lambda module: initialization.init_wav2vec2_weights(
+        config=config, module=module)
+    )
 
   def freeze_feature_encoder(self) -> None:
     """
@@ -221,7 +167,6 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
         output_hidden_states=output_hidden_states,
     )
 
-  #   hidden_states = encoder_outputs[0]
     hidden_states = encoder_outputs.last_hidden_state
 
 
@@ -234,11 +179,13 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
 
 
 
-class MultiDimWav2Vec2ForPreTraining(Wav2Vec2PreTrainedModel):
+# class MultiDimWav2Vec2ForPreTraining(Wav2Vec2PreTrainedModel):
+class MultiDimWav2Vec2ForPreTraining(nn.Module):
   """ Wav2Vec2 model with a contrastive loss head."""
   def __init__(self, config: ml_collections.ConfigDict):
-    super().__init__(config)
-    # self.wav2vec2 = MultiDimWav2Vec2Model(config)
+    # super().__init__(config)
+    super().__init__()
+    self.config = config
     self.wav2vec2 = Wav2Vec2Model(config)
     self.dropout_features = nn.Dropout(config.feat_quantizer_dropout)
 
@@ -252,7 +199,10 @@ class MultiDimWav2Vec2ForPreTraining(Wav2Vec2PreTrainedModel):
     )
 
     # Initialize weights and apply final processing
-    self.post_init()
+    self.apply(
+      lambda module: initialization.init_wav2vec2_weights(
+        config=config, module=module)
+    )
 
   def set_gumbel_temperature(self, temperature: int) -> None:
     """Set the Gumbel softmax temperature to a given value."""
