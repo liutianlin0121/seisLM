@@ -4,7 +4,7 @@ import traceback
 import os
 import json
 import time
-from ml_collections import config_dict
+import ml_collections
 import lightning as L
 import torch
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
@@ -18,7 +18,12 @@ from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
 DEFAULT_NUM_WORKERS = 4
-def train_self_supervised(model_config, training_config, test_run):
+def train_self_supervised(
+  *,
+  model_config: ml_collections.ConfigDict,
+  training_config: ml_collections.ConfigDict,
+  test_run: bool
+  ) -> None:
   """
   Args:
     model_config: Wav2Vec2Config object
@@ -32,7 +37,8 @@ def train_self_supervised(model_config, training_config, test_run):
 
   data_collator = \
     collator.DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding(
-        model=model.model,
+        # model=model.model,
+        config=model_config,
         mask_time_prob=training_config.mask_time_prob,
         mask_time_length=training_config.mask_time_length,
     )
@@ -130,13 +136,17 @@ if __name__ == '__main__':
 
   with open(args.training_config_path, "r", encoding="utf-8") as f:
     training_config = json.load(f)
-  training_config = config_dict.ConfigDict(training_config)
+  training_config = ml_collections.ConfigDict(training_config)
 
   if args.test_run:
     training_config.num_train_epochs = 1
 
   try:
-    train_self_supervised(model_config, training_config, args.test_run)
+    train_self_supervised(
+      model_config=model_config,
+      training_config=training_config,
+      test_run=args.test_run
+    )
   except Exception as e:
     traceback.print_exc()
   finally:

@@ -14,10 +14,7 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
   Data collator that prepare masked indices for self-supervised pretraining.
 
   Args:
-    model (:class:`~transformers.Wav2Vec2ForPreTraining`):
-        The Wav2Vec2 model used for pretraining. The data collator needs to
-        have access to config and ``_get_feat_extract_output_lengths``
-        function for correct padding.
+    config: config dict
     mask_time_prob (:obj:`float`, `optional`, defaults to :obj:`0.65`):
         Percentage (between 0 and 1) of all feature vectors along the time axis
         which will be masked for the contrastive task.
@@ -34,7 +31,6 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
         to the ``M`` variable mentioned there.
   """
 
-  # model: Wav2Vec2ForPreTraining
   config: ml_collections.ConfigDict
   mask_time_prob: Optional[float] = 0.65
   mask_time_length: Optional[int] = 10
@@ -53,7 +49,7 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
     device = batch["input_values"].device
 
     # computes the output length of the convoluional layers
-    mask_indices_seq_length = mask_utils._get_feat_extract_output_lengths(
+    mask_indices_seq_length = mask_utils.get_feat_extract_output_lengths(
       self.config,
       seq_length
     )
