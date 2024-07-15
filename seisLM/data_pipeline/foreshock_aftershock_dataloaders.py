@@ -1,10 +1,15 @@
 """Dataloaders for the foreshock-aftershock dataset. """
 from typing import Dict
 import torch
-import einops
+import numpy as np
+from seisbench.generate.augmentation import Normalize
 from seisLM.data_pipeline import foreshock_aftershock_dataset as dataset
 
+
+
+
 def prepare_foreshock_aftershock_dataloaders(
+  *,
   num_classes: int,
   batch_size: int,
   event_split_method: str,
@@ -15,7 +20,7 @@ def prepare_foreshock_aftershock_dataloaders(
   test_frac: float = 0.20,
   standardize: bool = True,
   num_workers: int = 8,
-  dimension_order: str = 'CW'
+  dimension_order: str = 'NCW'
   ) -> Dict[str, torch.utils.data.DataLoader]:
   ''' Create dataloaders for the foreshock-aftershock dataset.'''
 
@@ -23,6 +28,7 @@ def prepare_foreshock_aftershock_dataloaders(
     num_classes=num_classes,
     event_split_method=event_split_method,
     component_order=component_order,
+    dimension_order=dimension_order,
     seed=seed,
     train_frac=train_frac,
     val_frac=val_frac,
@@ -33,22 +39,29 @@ def prepare_foreshock_aftershock_dataloaders(
   X_val, y_val = datasets['val']['X'], datasets['val']['y']
   X_test, y_test = datasets['test']['X'], datasets['test']['y']
 
-  if standardize:
-    mean, std = X_train.mean(), X_train.std()
-    X_train = (X_train - mean) / std
-    X_val = (X_val - mean) / std
-    X_test = (X_test - mean) / std
 
-  if dimension_order == 'CW':
-    X_train = einops.rearrange(X_train, 'n w c -> n c w')
-    X_val = einops.rearrange(X_val, 'n w c -> n c w')
-    X_test = einops.rearrange(X_test, 'n w c -> n c w')
-  elif dimension_order == 'WC':
-    pass
-  else:
-    raise ValueError(
-      f'Invalid dimension_order {dimension_order}. Must be "CW" or "WC".'
-    )
+
+  if standardize:
+    # mean, std = X_train.mean(), X_train.std()
+    # X_train = (X_train - mean) / std
+    # X_val = (X_val - mean) / std
+    # X_test = (X_test - mean) / std
+
+    normalizer = Normalize(
+      demean_axis=dimension_order.index('W'),
+      amp_norm_axis=dimension_order.index('W'),
+      amp_norm_type='peak'
+      )
+
+    def normalize(X: np.ndarray) -> np.ndarray:
+      X = normalizer._demean(X) # pylint: disable=protected-access
+      X = normalizer._detrend(X) # pylint: disable=protected-access
+      X = normalizer._amp_norm(X) # pylint: disable=protected-access
+      return X
+
+    X_train = normalize(X_train)
+    X_val = normalize(X_val)
+    X_test = normalize(X_test)
 
   X_train, y_train = torch.from_numpy(X_train), torch.from_numpy(y_train)
   X_val, y_val = torch.from_numpy(X_val), torch.from_numpy(y_val)
@@ -57,21 +70,21 @@ def prepare_foreshock_aftershock_dataloaders(
 
   loaders = {
     'train': torch.utils.data.DataLoader(
-      torch.utils.data.TensorDataset(X_train.float(), y_train),
+      torch.utils.data.TensorDataset(X_train, y_train),
       batch_size=batch_size,
       shuffle=True,
       pin_memory=True,
       num_workers=num_workers,
     ),
     'val': torch.utils.data.DataLoader(
-      torch.utils.data.TensorDataset(X_val.float(), y_val),
+      torch.utils.data.TensorDataset(X_val, y_val),
       batch_size=batch_size,
       shuffle=False,
       pin_memory=True,
       num_workers=num_workers,
     ),
     'test': torch.utils.data.DataLoader(
-      torch.utils.data.TensorDataset(X_test.float(), y_test),
+      torch.utils.data.TensorDataset(X_test, y_test),
       batch_size=batch_size,
       shuffle=False,
       pin_memory=True,

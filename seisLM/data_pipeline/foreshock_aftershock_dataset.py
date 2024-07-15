@@ -137,7 +137,8 @@ def equip_shock_dfs_with_class_labels(
 def extract_input_target_from_dataframe(
   *,
   df: pd.DataFrame,
-  component_order: str
+  component_order: str,
+  dimension_order: str,
   ) -> Dict[str, Union[np.ndarray, str]]:
   """Extract the input values and the target values from a DataFrame."""
 
@@ -148,6 +149,8 @@ def extract_input_target_from_dataframe(
       'Z': 'Z_channel'
   }
 
+  assert dimension_order in ['NCW', 'NWC']
+
   # Ensure the component_order is valid
   assert set(component_order) == {'E', 'N', 'Z'},\
     "component_order must be a permutation of 'ENZ'"
@@ -157,9 +160,11 @@ def extract_input_target_from_dataframe(
     df.apply(lambda row: np.stack(
       [row[channel_mapping[comp]] for comp in component_order]
       ), axis=1
-    ).to_list()
+    ).to_list(),
+    dtype=np.float32,
   )
-  input_values = einops.rearrange(input_values, 'b c l -> b l c')
+  if dimension_order == 'NWC':
+    input_values = einops.rearrange(input_values, 'n c w -> n w c')
   targets = np.array(df['label'].to_list())
 
   occurence_time = df['source_origin_time'].apply(
@@ -171,9 +176,11 @@ def extract_input_target_from_dataframe(
 
 
 def train_val_test_split(
+  *,
   df: pd.DataFrame,
   num_classes: int,
   component_order: str,
+  dimension_order: str,
   train_frac: float = 0.70,
   val_frac: float = 0.10,
   test_frac: float = 0.20,
@@ -263,13 +270,19 @@ def train_val_test_split(
   test_df = shuffle_and_reset(df.loc[df['source_id'].isin(source_id_test)])
 
   train_data = extract_input_target_from_dataframe(
-    df=train_df, component_order=component_order
+    df=train_df,
+    component_order=component_order,
+    dimension_order=dimension_order,
   )
   val_data = extract_input_target_from_dataframe(
-    df=val_df, component_order=component_order
+    df=val_df,
+    component_order=component_order,
+    dimension_order=dimension_order,
   )
   test_data = extract_input_target_from_dataframe(
-    df=test_df, component_order=component_order
+    df=test_df,
+    component_order=component_order,
+    dimension_order=dimension_order,
   )
 
   return train_data, val_data, test_data
@@ -277,9 +290,11 @@ def train_val_test_split(
 
 
 def create_foreshock_aftershock_datasets(
+  *,
   num_classes: int,
   event_split_method: str,
   component_order: str,
+  dimension_order: str,
   train_frac: float = 0.70,
   val_frac: float = 0.10,
   test_frac: float = 0.20,
@@ -321,6 +336,7 @@ def create_foreshock_aftershock_datasets(
     df=df,
     num_classes=num_classes,
     component_order=component_order,
+    dimension_order=dimension_order,
     train_frac=train_frac,
     val_frac=val_frac,
     test_frac=test_frac,

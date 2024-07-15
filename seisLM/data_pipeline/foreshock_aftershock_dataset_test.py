@@ -98,6 +98,7 @@ for split_random in [False, True]:
       num_classes=num_classes,
       event_split_method='random' if split_random else 'temporal',
       component_order='ENZ',
+      dimension_order='NWC',
       seed=seed,
     )
 

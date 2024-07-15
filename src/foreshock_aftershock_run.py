@@ -11,13 +11,16 @@ import os
 import time
 import traceback
 
+
 import lightning as L
 import torch
 import wandb
 from lightning.pytorch import seed_everything
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
-from ml_collections import config_dict
+# from ml_collections import config_dict
+import ml_collections
+
 
 from seisLM.data_pipeline import \
     foreshock_aftershock_dataloaders as dataloaders
@@ -26,7 +29,10 @@ from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
 
-def train_foreshock_aftershock(config, task_name):
+def train_foreshock_aftershock(
+  config: ml_collections.ConfigDict,
+  task_name: str
+  ) -> None:
   """Runs the model training defined by the config.
   """
   seed = config.get("seed", 42)
@@ -116,7 +122,7 @@ if __name__ == "__main__":
 
   with open(args.config, "r", encoding="utf-8") as f:
     config = json.load(f)
-  config = config_dict.ConfigDict(config)
+  config = ml_collections.ConfigDict(config)
 
   task_name = os.path.basename(__file__)[: -len(".py")]
 
