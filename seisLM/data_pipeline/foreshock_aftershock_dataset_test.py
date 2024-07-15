@@ -96,8 +96,9 @@ for split_random in [False, True]:
     print(f'split_random={split_random}, num_classes={num_classes}')
     datasets = myu.create_foreshock_aftershock_datasets(
       num_classes=num_classes,
-      seed=seed,
       event_split_method='random' if split_random else 'temporal',
+      component_order='ENZ',
+      seed=seed,
     )
 
     train_data, val_data, test_data = datasets['train'], datasets['val'], datasets['test']

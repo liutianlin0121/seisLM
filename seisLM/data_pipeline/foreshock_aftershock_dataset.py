@@ -5,13 +5,12 @@ from typing import Optional, Tuple, Dict, Union
 import einops
 import numpy as np
 import pandas as pd
-import torch
 from lightning import seed_everything
 from sklearn.utils import shuffle
 from seisLM.utils.project_path import DATA_DIR
 
 
-def compute_norcia_ttf(row):
+def compute_norcia_ttf(row: pd.core.series.Series) -> float:
   """Computes the difference in seconds between an event the main event.
   This difference in time is called Time To Failure (TTF).
 
@@ -83,13 +82,6 @@ def equallize_dataset_length(
   return df_pre, df_visso, df_post
 
 
-# Function to create a label array with a 1 at the specified position
-# def create_label_array(num_classes, position):
-#   label_array = [0] * num_classes
-#   label_array[position] = 1
-#   return label_array
-
-
 def equip_shock_dfs_with_class_labels(
   df_pre: pd.DataFrame,
   df_visso: Optional[pd.DataFrame],
@@ -117,7 +109,6 @@ def equip_shock_dfs_with_class_labels(
     df_visso.reset_index(inplace=True)
 
     # Create a label DataFrame with the same number of rows
-    # labels = [create_label_array(num_classes, num_classes // 2)] * len(df_visso)
     labels = [num_classes // 2] * len(df_visso)
 
     # Assign the label DataFrame to the visso_frame
@@ -126,7 +117,7 @@ def equip_shock_dfs_with_class_labels(
   num_pre_or_post_classes = num_classes // 2
   post_idx_shift = num_classes % 2
 
-  def process_df(df, offset=0):
+  def process_df(df: pd.DataFrame, offset: int = 0) -> pd.DataFrame:
     df.sort_values(by='trace_start_time', inplace=True)
     rows_per_class = len(df) // num_pre_or_post_classes
     frames = []
@@ -134,8 +125,6 @@ def equip_shock_dfs_with_class_labels(
       frame = df.iloc[c * rows_per_class: (c + 1) * rows_per_class].reset_index(
         drop=True)
       label_position = c + offset
-      # frame['label'] = [create_label_array(num_classes, label_position)] * len(
-      #   frame)
       frame['label'] = [label_position] * len(frame)
       frames.append(frame)
     return pd.concat(frames, ignore_index=True)
@@ -146,12 +135,28 @@ def equip_shock_dfs_with_class_labels(
 
 
 def extract_input_target_from_dataframe(
-  df: pd.DataFrame) -> Dict[str, Union[np.ndarray, str]]:
+  *,
+  df: pd.DataFrame,
+  component_order: str
+  ) -> Dict[str, Union[np.ndarray, str]]:
   """Extract the input values and the target values from a DataFrame."""
 
+  # Create a mapping of channels based on the component order
+  channel_mapping = {
+      'E': 'E_channel',
+      'N': 'N_channel',
+      'Z': 'Z_channel'
+  }
+
+  # Ensure the component_order is valid
+  assert set(component_order) == {'E', 'N', 'Z'},\
+    "component_order must be a permutation of 'ENZ'"
+
+  # Generate the input_values based on the component order
   input_values = np.array(
     df.apply(lambda row: np.stack(
-      [row['E_channel'], row['N_channel'], row['Z_channel']]), axis=1
+      [row[channel_mapping[comp]] for comp in component_order]
+      ), axis=1
     ).to_list()
   )
   input_values = einops.rearrange(input_values, 'b c l -> b l c')
@@ -168,8 +173,13 @@ def extract_input_target_from_dataframe(
 def train_val_test_split(
   df: pd.DataFrame,
   num_classes: int,
-  train_frac=0.70, val_frac=0.10, test_frac=0.20,
-  event_split_method='random', seed=42, verbose_events=False
+  component_order: str,
+  train_frac: float = 0.70,
+  val_frac: float = 0.10,
+  test_frac: float = 0.20,
+  event_split_method: str = 'random',
+  seed: int = 42,
+  verbose_events: bool = False
   ) -> Tuple[Dict[str, Union[np.ndarray, str]],
              Dict[str, Union[np.ndarray, str]],
              Dict[str, Union[np.ndarray, str]]]:
@@ -211,11 +221,7 @@ def train_val_test_split(
   elif event_split_method == 'temporal':
     # temporally assign events to train, val, and test.
 
-    frames_class = [
-      # df[df['label'].apply(lambda x: x.index(max(x))) == i] for i in range(
-      #   num_classes)
-      df[df['label'] == i] for i in range(num_classes)
-    ]
+    frames_class = [df[df['label'] == i] for i in range(num_classes)]
 
 
     source_id_train = []
@@ -256,22 +262,29 @@ def train_val_test_split(
   val_df = shuffle_and_reset(df.loc[df['source_id'].isin(source_id_val)])
   test_df = shuffle_and_reset(df.loc[df['source_id'].isin(source_id_test)])
 
-  train_data = extract_input_target_from_dataframe(train_df)
-  val_data = extract_input_target_from_dataframe(val_df)
-  test_data = extract_input_target_from_dataframe(test_df)
+  train_data = extract_input_target_from_dataframe(
+    df=train_df, component_order=component_order
+  )
+  val_data = extract_input_target_from_dataframe(
+    df=val_df, component_order=component_order
+  )
+  test_data = extract_input_target_from_dataframe(
+    df=test_df, component_order=component_order
+  )
 
   return train_data, val_data, test_data
 
 
 
 def create_foreshock_aftershock_datasets(
-  num_classes,
-  event_split_method,
-  train_frac=0.70,
-  val_frac=0.10,
-  test_frac=0.20,
-  seed=42
-  ):
+  num_classes: int,
+  event_split_method: str,
+  component_order: str,
+  train_frac: float = 0.70,
+  val_frac: float = 0.10,
+  test_frac: float = 0.20,
+  seed: int = 42
+  ) -> Dict[str, Dict[str, Union[np.ndarray, str]]]:
 
 
   df_pre = pd.read_pickle(
@@ -307,6 +320,7 @@ def create_foreshock_aftershock_datasets(
   train_data, val_data, test_data = train_val_test_split(
     df=df,
     num_classes=num_classes,
+    component_order=component_order,
     train_frac=train_frac,
     val_frac=val_frac,
     test_frac=test_frac,

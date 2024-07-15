@@ -1,4 +1,5 @@
 """Dataloaders for the foreshock-aftershock dataset. """
+from typing import Dict
 import torch
 import einops
 from seisLM.data_pipeline import foreshock_aftershock_dataset as dataset
@@ -7,6 +8,7 @@ def prepare_foreshock_aftershock_dataloaders(
   num_classes: int,
   batch_size: int,
   event_split_method: str,
+  component_order: str,
   seed: int = 42,
   train_frac: float = 0.70,
   val_frac: float = 0.10,
@@ -14,12 +16,13 @@ def prepare_foreshock_aftershock_dataloaders(
   standardize: bool = True,
   num_workers: int = 8,
   dimension_order: str = 'CW'
-  ):
+  ) -> Dict[str, torch.utils.data.DataLoader]:
   ''' Create dataloaders for the foreshock-aftershock dataset.'''
 
   datasets = dataset.create_foreshock_aftershock_datasets(
     num_classes=num_classes,
     event_split_method=event_split_method,
+    component_order=component_order,
     seed=seed,
     train_frac=train_frac,
     val_frac=val_frac,
