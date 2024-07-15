@@ -38,7 +38,6 @@ class Wav2Vec2FeatureProjection(nn.Module):
     return hidden_states, norm_hidden_states
 
 
-# class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
 class Wav2Vec2Model(nn.Module):
   def __init__(self, config: ml_collections.ConfigDict):
     # super().__init__(config)

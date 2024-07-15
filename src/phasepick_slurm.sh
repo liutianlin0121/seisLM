@@ -7,7 +7,7 @@
 #SBATCH --nodes=1                # Node count
 #SBATCH --ntasks-per-node=2      # Total number of tasks per node
 #SBATCH --output=phasepick.o%j   # Path and name to the file for the STDOUT
-#SBATCH --partition=rtx8000         # Partition to allocate your job
+#SBATCH --partition=a100         # Partition to allocate your job
 #SBATCH --qos=6hours             # Selected queue to allocate your job
 #SBATCH --time=0-01:30:00        # Maximum allocated time
 

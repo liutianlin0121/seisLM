@@ -20,16 +20,19 @@ import numpy as np
 import seisbench.generate as sbg
 import seisbench.models as sbm
 import torch
+from torch import Tensor
 import torch.nn as nn
 import transformers.models.wav2vec2.modeling_wav2vec2 as hf_wav2vec2
 from transformers.modeling_outputs import TokenClassifierOutput
 
 from seisLM.model.foundation import pretrained_models
-from seisLM.model.foundation.multidim_wav2vec2 import MultiDimWav2Vec2Model
+from seisLM.model.foundation.multidim_wav2vec2 import Wav2Vec2Model
 from seisLM.utils.data_utils import phase_dict
 
 
-def vector_cross_entropy(y_pred, y_true, eps=1e-5):
+def vector_cross_entropy(
+  y_pred: Tensor, y_true: Tensor, eps: float = 1e-5
+  ) -> Tensor:
   """
   Cross entropy loss
 
@@ -224,7 +227,7 @@ class MultiDimWav2Vec2ForFrameClassification(
 
   def __init__(self, config: hf_wav2vec2.Wav2Vec2Config):
     super().__init__(config)
-    self.wav2vec2 = MultiDimWav2Vec2Model(config)
+    self.wav2vec2 = Wav2Vec2Model(config)
     self.classifier = nn.Linear(
       config.hidden_size + config.input_dim,
       config.num_labels
@@ -252,18 +255,20 @@ class MultiDimWav2Vec2ForFrameClassification(
         attention_mask=None,
         output_attentions=None,
         output_hidden_states=output_hidden_states,
-        return_dict=self.config.use_return_dict,
     )
 
 
     # The resulting hidden_states: [batch_size, seq_len, hidden_size]
-    if self.config.use_weighted_layer_sum:
-      hidden_states = outputs[_HIDDEN_STATES_START_POSITION]
-      hidden_states = torch.stack(hidden_states, dim=1)
-      norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
-      hidden_states = (hidden_states * norm_weights.view(-1, 1, 1)).sum(dim=1)
-    else:
-      hidden_states = outputs[0]
+    # if self.config.use_weighted_layer_sum:
+      # hidden_states = outputs[_HIDDEN_STATES_START_POSITION]
+      # hidden_states = torch.stack(hidden_states, dim=1)
+      # norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
+      # hidden_states = (hidden_states * norm_weights.view(-1, 1, 1)).sum(dim=1)
+    # else:
+      # hidden_states = outputs[0]
+
+    # TODO: implement the weighted layer sum version.
+    hidden_states = outputs.last_hidden_state
 
     # If seq_length of hidden_states and labels are not the same, we need to
     # interpolate the hidden_states to match the labels.
