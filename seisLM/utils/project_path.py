@@ -9,7 +9,8 @@ checkpointsdir(experiment_name)
 
 import os
 import git
-
+import glob, os
+from typing import Optional, List
 
 def gitdir() -> str:
   """Find the absolute path to the GitHub repository root.
@@ -38,3 +39,27 @@ MODEL_SAVE_DIR = os.path.join(gitdir(), 'results/models')
 EVAL_SAVE_DIR = os.path.join(gitdir(), 'results/evaluation')
 FIGURE_DIR = os.path.join(gitdir(), 'results/figures')
 
+
+def list_all_checkpoints(
+  base_folder: str,
+  keywords: Optional[List[str]] = None
+  ) -> List[str]:
+  """List all checkpoints in the given folder, filtered by keywords.
+
+  Args:
+    base_folder: The folder to search for checkpoints.
+    keywords: A list of keywords to filter the checkpoints.
+
+  Returns:
+    checkpoints: A list of checkpoint paths.
+  """
+
+  pattern = os.path.join(base_folder, '**', '*.ckpt')
+  checkpoints = glob.glob(pattern, recursive=True)
+  if keywords:
+    checkpoints = [
+        checkpoint for checkpoint in checkpoints
+        if all(keyword in checkpoint for keyword in keywords)
+    ]
+
+  return checkpoints

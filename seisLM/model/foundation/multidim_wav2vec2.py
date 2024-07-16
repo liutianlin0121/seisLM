@@ -40,7 +40,6 @@ class Wav2Vec2FeatureProjection(nn.Module):
 
 class Wav2Vec2Model(nn.Module):
   def __init__(self, config: ml_collections.ConfigDict):
-    # super().__init__(config)
     super().__init__()
     self.config = config
     self.feature_extractor = Wav2Vec2FeatureEncoder(config)
@@ -178,11 +177,9 @@ class Wav2Vec2Model(nn.Module):
 
 
 
-# class MultiDimWav2Vec2ForPreTraining(Wav2Vec2PreTrainedModel):
 class MultiDimWav2Vec2ForPreTraining(nn.Module):
   """ Wav2Vec2 model with a contrastive loss head."""
   def __init__(self, config: ml_collections.ConfigDict):
-    # super().__init__(config)
     super().__init__()
     self.config = config
     self.wav2vec2 = Wav2Vec2Model(config)

@@ -224,6 +224,7 @@ _HIDDEN_STATES_START_POSITION = 2
 class MultiDimWav2Vec2ForFrameClassification(
   hf_wav2vec2.Wav2Vec2ForAudioFrameClassification):
   """ Wav2Vec2 model with a contrastive loss head."""
+  # TODO: remove the inheritance.
 
   def __init__(self, config: hf_wav2vec2.Wav2Vec2Config):
     super().__init__(config)
@@ -329,7 +330,8 @@ class MultiDimWav2Vec2ForFrameClassificationLit(PhaseNetLit):
     self.model.wav2vec2.load_state_dict(
         pretrained_model.wav2vec2.state_dict()
     )
-    self.model.freeze_feature_extractor()
+    # self.model.freeze_feature_extractor()
+    self.model.freeze_feature_encoder()
 
   def configure_optimizers(self):
     optimizer = torch.optim.Adam(

@@ -18,7 +18,6 @@ import wandb
 from lightning.pytorch import seed_everything
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
-# from ml_collections import config_dict
 import ml_collections
 
 
@@ -48,7 +47,8 @@ def train_foreshock_aftershock(
   max_train_steps = config.trainer_args.max_epochs * len(
     loaders['train'])
 
-  model = foreshock_aftershock_models.__getattribute__(config.model + "Lit")(
+  model = foreshock_aftershock_models.ShockClassifierLit(
+      model_name=config.model_name,
       model_config=config.model_args,
       max_train_steps=max_train_steps
   )
@@ -58,6 +58,7 @@ def train_foreshock_aftershock(
   )
 
   run_name = f"num_classes_{config.model_args.num_classes}_seed_{seed}"\
+    + f"_model_{config.model_name}"\
     + f"_time_{formatted_time}"
 
   logger = WandbLogger(
@@ -66,7 +67,7 @@ def train_foreshock_aftershock(
       # Describes a specific experiment within the project
       name=run_name,
       # Filter runs based on keywords or categories.
-      tags=[f"model_{config.model}",
+      tags=[f"model_{config.model_name}",
             f"num_classes_{config.model_args.num_classes}"],
       # A unique identifier for the run
       id=run_name,
