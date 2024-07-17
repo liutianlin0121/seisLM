@@ -16,13 +16,14 @@
     "devices": 2,
     "strategy": "ddp",
     "accelerator": "gpu",
-    "max_epochs": 20
+    "max_epochs": 100,
+    "unfreeze_base_at_epoch": 20
   },
   "model_args": {
     "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/42__2024-07-06-11h-30m-09s/checkpoints/epoch=22-step=604624.ckpt",
-    "classifier_proj_size": 1024,
+    "classifier_proj_size": 256,
     "num_classes": 8,
-    "learning_rate": 1e-5,
-    "weight_decay": 0.1
+    "learning_rate": 1e-3,
+    "weight_decay": 0.01
   }
 }

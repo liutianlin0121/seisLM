@@ -1,16 +1,17 @@
 """ Models for the foreshock-aftershock classification task. """
 from typing import Tuple, Dict, Optional
+import einops
 import torch
 from torch import Tensor
 import torch.nn as nn
+from torch.optim import Optimizer
 import ml_collections
-from transformers import Wav2Vec2Config
 import torchmetrics
 import lightning as L
+from lightning.pytorch.utilities import grad_norm
 from seisLM.model.foundation.multidim_wav2vec2 import Wav2Vec2Model
 from seisLM.model.foundation import initialization
 from seisLM.model.foundation import pretrained_models
-from seisLM.utils import config_utils
 
 class DoubleConvBlock(nn.Module):
   """Two conv layers with batchnorm and ReLU activation, like in a 1d U-Net."""
@@ -93,7 +94,10 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
     num_layers = config.num_hidden_layers + 1
     if config.use_weighted_layer_sum:
       self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
-    self.projector = nn.Linear(config.hidden_size, config.classifier_proj_size)
+    self.projector = nn.Linear(
+      config.hidden_size + 3,
+      config.classifier_proj_size
+    )
     self.classifier = nn.Linear(config.classifier_proj_size, config.num_classes)
 
     # Initialize weights and apply final processing
@@ -139,8 +143,28 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
     # else:
     # TODO: implement the weighted layer sum version.
 
+    # [B, L, config.hidden_size]
     hidden_states = outputs.last_hidden_state
+
+
+    # interp_input: [B, 3, L]
+    interp_input = torch.nn.functional.interpolate(
+      input_values, # [B, 3, L']
+      size=hidden_states.shape[1],
+      mode='linear',
+      align_corners=True,
+    )
+
+    # interp_input: [B, L, 3]
+    interp_input = einops.rearrange(interp_input, 'b c l -> b l c')
+
+    # hidden_states: [B, L, config.hidden_size + 3]
+    hidden_states = torch.cat([hidden_states, interp_input], dim = -1)
+
+    # [B, L, config.hidden_size + 3] -> [B, L, config.classifier_proj_size]
     hidden_states = self.projector(hidden_states)
+
+    # [B, L, config.classifier_proj_size] -> [B, config.classifier_proj_size]
     pooled_output = hidden_states.mean(dim=1)
     logits = self.classifier(pooled_output)
     return logits
@@ -201,6 +225,11 @@ class ShockClassifierLit(L.LightningModule):
     logits = self.model(waveforms)
     return logits
 
+
+  def on_before_optimizer_step(self, optimizer: Optimizer) -> None:
+    # inspect (unscaled) gradients here
+    self.log_dict(grad_norm(self, norm_type=2))
+
   def training_step(self, batch: Tuple, batch_idx: int) -> Tensor:
     waveforms, labels = batch
     logits = self(waveforms)
@@ -236,7 +265,7 @@ class ShockClassifierLit(L.LightningModule):
 
   def configure_optimizers(self) -> Dict:
     optimizer = torch.optim.AdamW(
-        self.trainer.model.parameters(),
+        filter(lambda p: p.requires_grad, self.parameters()),
         lr=self.model_config.learning_rate,
         weight_decay=self.model_config.weight_decay,
     )

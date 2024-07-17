@@ -26,7 +26,7 @@ from seisLM.data_pipeline import \
 from seisLM.model.task_specific import foreshock_aftershock_models
 from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
-
+from seisLM.model.task_specific import shared_task_specific
 
 def train_foreshock_aftershock(
   config: ml_collections.ConfigDict,
@@ -92,6 +92,13 @@ def train_foreshock_aftershock(
   lr_monitor = LearningRateMonitor(logging_interval='step')
   callbacks = [checkpoint_callback, lr_monitor]
 
+  if config.model_name == "Wav2Vec2ForSequenceClassification":
+    callbacks.append(
+      shared_task_specific.BaseModelUnfreeze(
+        unfreeze_at_epoch=config.trainer_args.unfreeze_base_at_epoch
+      )
+    )
+
   log_every_n_steps = min(
     50, len(loaders['train']) // config.trainer_args.devices
   )
@@ -103,7 +110,11 @@ def train_foreshock_aftershock(
       logger=logger,
       callbacks=callbacks,
       log_every_n_steps=log_every_n_steps,
-      **config.get("trainer_args", {}),
+      # **config.get("trainer_args", {}),
+      devices=config.trainer_args.devices,
+      strategy=config.trainer_args.strategy,
+      accelerator=config.trainer_args.accelerator,
+      max_epochs=config.trainer_args.max_epochs,
   )
 
   trainer.fit(model, loaders['train'], loaders['test'])
