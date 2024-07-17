@@ -48,10 +48,13 @@ def train_foreshock_aftershock(
   max_train_steps = config.trainer_args.max_epochs * len(
     loaders['train'])
 
+  config.trainer_args.max_train_steps = max_train_steps
+
   model = foreshock_aftershock_models.ShockClassifierLit(
       model_name=config.model_name,
       model_config=config.model_args,
-      max_train_steps=max_train_steps
+      training_config=config.trainer_args,
+      # max_train_steps=max_train_steps
   )
 
   formatted_time = time.strftime(
@@ -81,6 +84,7 @@ def train_foreshock_aftershock(
     logger.log_hyperparams({"slurm_job_id": slurm_job_id})
 
   logger.log_hyperparams(config.to_dict())
+  logger.log_hyperparams(model.model_config.to_dict())
 
   lr_monitor = LearningRateMonitor(logging_interval='step')
   callbacks = [lr_monitor]
@@ -148,7 +152,8 @@ if __name__ == "__main__":
   task_name = os.path.basename(__file__)[: -len(".py")]
 
   try:
-    for num_classes in [4, 9, 8, 2]:
+    # for num_classes in [4, 9, 8, 2]:
+    for num_classes in [4]:
       config.model_args.num_classes = num_classes
       train_foreshock_aftershock(config, task_name, args.save_checkpoints)
 

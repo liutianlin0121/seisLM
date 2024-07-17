@@ -1,17 +1,21 @@
 """ Models for the foreshock-aftershock classification task. """
-from typing import Tuple, Dict, Optional
-import einops
-import torch
-from torch import Tensor
-import torch.nn as nn
-from torch.optim import Optimizer
-import ml_collections
-import torchmetrics
+import math
+from typing import Dict, Optional, Tuple
+
 import lightning as L
+import ml_collections
+import numpy as np
+import torch
+import torch.nn as nn
+import torchmetrics
 from lightning.pytorch.utilities import grad_norm
+from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LambdaLR
+
+from seisLM.model.foundation import initialization, pretrained_models
 from seisLM.model.foundation.multidim_wav2vec2 import Wav2Vec2Model
-from seisLM.model.foundation import initialization
-from seisLM.model.foundation import pretrained_models
+
 
 class DoubleConvBlock(nn.Module):
   """Two conv layers with batchnorm and ReLU activation, like in a 1d U-Net."""
@@ -94,17 +98,27 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
     num_layers = config.num_hidden_layers + 1
     if config.use_weighted_layer_sum:
       self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
-    self.projector = nn.Linear(
-      config.hidden_size,# + 3,
-      config.classifier_proj_size
-    )
-    self.classifier = nn.Linear(config.classifier_proj_size, config.num_classes)
-
+    self.projector = nn.Linear(config.hidden_size, config.hidden_size)
+    self.classifier = nn.Linear(config.hidden_size, config.num_classes)
+    self.dropout = nn.Dropout(config.classifier_dropout)
     # Initialize weights and apply final processing
     self.apply(
       lambda module: initialization.init_wav2vec2_weights(
         config=config, module=module)
     )
+    self.initialize_projector()
+
+  def initialize_projector(self) -> None:
+    # Ensure the weight matrix is square
+    if self.projector.weight.shape[0] == self.projector.weight.shape[1]:
+      nn.init.eye_(self.projector.weight)
+    else:
+      raise ValueError(
+        "Weight matrix must be square to initialize with an identity matrix")
+
+    # Initialize bias to zero
+    if self.projector.bias is not None:
+      nn.init.zeros_(self.projector.bias)
 
   def freeze_feature_encoder(self) -> None:
     """Disable the gradient computation for the feature encoder."""
@@ -154,6 +168,7 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
 
     # [B, L, config.classifier_proj_size] -> [B, config.classifier_proj_size]
     pooled_output = hidden_states.mean(dim=1)
+    pooled_output = self.dropout(pooled_output)
     logits = self.classifier(pooled_output)
     return logits
 
@@ -165,12 +180,13 @@ class ShockClassifierLit(L.LightningModule):
     self,
     model_name: str,
     model_config: ml_collections.ConfigDict,
-    max_train_steps: int,
+    # max_train_steps: int,
+    training_config: ml_collections.ConfigDict
     ):
     super().__init__()
     self.save_hyperparameters()
-    # self.model_config = model_config
-    self.max_train_steps = max_train_steps
+    self.training_config = training_config
+    # self.max_train_steps = max_train_steps
 
     if model_name == "Conv1DShockClassifier":
       self.model = Conv1DShockClassifier(model_config)
@@ -180,13 +196,18 @@ class ShockClassifierLit(L.LightningModule):
       ).model
 
       ## TODO: temp fix for the config issue
-
       new_config = pretrained_model.config
       for key, value in model_config.items():
-        # new_config[key] = value
         setattr(new_config, key, value)
 
+      # for key, value in new_config.to_dict().items():
+      #   if 'dropout' in key:
+      #     print(f'Orig. {key} value: {value}. New value: 0.1')
+      #     value = 0.1
+      #   setattr(new_config, key, value)
+
       model_config = new_config
+      # model_config = config_utils.ConfigTracker(model_config)
       self.model = Wav2Vec2ForSequenceClassification(model_config)
 
       self.model.wav2vec2.load_state_dict(
@@ -257,14 +278,39 @@ class ShockClassifierLit(L.LightningModule):
         lr=self.model_config.learning_rate,
         weight_decay=self.model_config.weight_decay,
     )
-    tmax = int(self.max_train_steps // self.trainer.num_devices)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-      optimizer, T_max=tmax
+    # tmax = int(self.max_train_steps // self.trainer.num_devices)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+    #   optimizer, T_max=tmax
+    # )
+    # sched_config = {
+    #     'scheduler': scheduler,
+    #     'interval': "step",
+    #     'frequency': 1,
+    # }
+
+    # return {"optimizer": optimizer, "lr_scheduler": sched_config}
+
+    t_max = int(
+      self.training_config.max_train_steps // self.trainer.num_devices
     )
+    t_warmup = int((self.training_config.warmup_frac_step * (
+      self.training_config.max_train_steps)) // self.trainer.num_devices
+    )
+
+    # Linear warmup and half-cycle cosine decay
+    def lr_lambda(step):
+      if step < t_warmup:
+        # Linear warm-up
+        return step / t_warmup
+      else:
+        # Cosine annealing over remaining steps
+        return 0.5 * (
+          1 + np.cos((step - t_warmup) * math.pi / (t_max - t_warmup))
+        )
+
     sched_config = {
-        'scheduler': scheduler,
+        'scheduler': LambdaLR(optimizer, lr_lambda),
         'interval': "step",
         'frequency': 1,
     }
-
     return {"optimizer": optimizer, "lr_scheduler": sched_config}

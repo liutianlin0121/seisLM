@@ -26,3 +26,21 @@ def wav2vec2_config_to_configdict(
     config_dict[key] = value
 
   return config_dict
+
+class ConfigTracker:
+    def __init__(self, config):
+        self.config = config
+        self.accessed_keys = set()
+
+    def __getattr__(self, key):
+        if key in self.config:
+            self.accessed_keys.add(key)
+            return self.config[key]
+        else:
+            raise AttributeError(f"Config has no attribute '{key}'")
+
+    def get_accessed_keys(self):
+        return self.accessed_keys
+
+    def get_unaccessed_keys(self):
+        return set(self.config.keys()) - self.accessed_keys

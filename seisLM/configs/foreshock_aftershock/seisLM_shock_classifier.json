@@ -17,7 +17,8 @@
     "strategy": "ddp",
     "accelerator": "gpu",
     "max_epochs": 100,
-    "unfreeze_base_at_epoch": 20
+    "unfreeze_base_at_epoch": 20,
+    "warmup_frac_step": 0.2
   },
   "model_args": {
     "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/42__2024-07-06-11h-30m-09s/checkpoints/epoch=22-step=604624.ckpt",
@@ -25,6 +26,7 @@
     "use_weighted_layer_sum": true,
     "num_classes": 8,
     "learning_rate": 1e-3,
-    "weight_decay": 0.01
+    "weight_decay": 0.01,
+    "classifier_dropout": 0.2
   }
 }
