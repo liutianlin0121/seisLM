@@ -110,7 +110,6 @@ def train_foreshock_aftershock(
       logger=logger,
       callbacks=callbacks,
       log_every_n_steps=log_every_n_steps,
-      # **config.get("trainer_args", {}),
       devices=config.trainer_args.devices,
       strategy=config.trainer_args.strategy,
       accelerator=config.trainer_args.accelerator,
