@@ -42,10 +42,6 @@ def prepare_foreshock_aftershock_dataloaders(
 
 
   if standardize:
-    # mean, std = X_train.mean(), X_train.std()
-    # X_train = (X_train - mean) / std
-    # X_val = (X_val - mean) / std
-    # X_test = (X_test - mean) / std
 
     normalizer = Normalize(
       demean_axis=dimension_order.index('W'),

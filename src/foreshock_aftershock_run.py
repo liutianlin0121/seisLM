@@ -30,7 +30,8 @@ from seisLM.model.task_specific import shared_task_specific
 
 def train_foreshock_aftershock(
   config: ml_collections.ConfigDict,
-  task_name: str
+  task_name: str,
+  save_checkpoint: bool = False,
   ) -> None:
   """Runs the model training defined by the config.
   """
@@ -81,16 +82,20 @@ def train_foreshock_aftershock(
 
   logger.log_hyperparams(config.to_dict())
 
-  checkpoint_callback = ModelCheckpoint(
-      monitor="val/loss",
-      save_top_k=1,
-      save_last=True,
-      mode='min',
-      filename="{epoch}-{step}",
-  )
-
   lr_monitor = LearningRateMonitor(logging_interval='step')
-  callbacks = [checkpoint_callback, lr_monitor]
+  callbacks = [lr_monitor]
+
+  if save_checkpoint:
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val/loss",
+        save_top_k=1,
+        save_last=True,
+        mode='min',
+        filename="{epoch}-{step}",
+    )
+    callbacks.append(checkpoint_callback)
+  else:
+    print('Checkpoints will not be saved.')
 
   if config.model_name == "Wav2Vec2ForSequenceClassification":
     callbacks.append(
@@ -128,6 +133,11 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
   parser.add_argument("--config", type=str, required=True)
+  parser.add_argument(
+      "--save_checkpoints", action="store_true",
+      help="Run in test mode for profiling purposes"
+  )
+
   args = parser.parse_args()
 
 
@@ -140,7 +150,7 @@ if __name__ == "__main__":
   try:
     for num_classes in [4, 9, 8, 2]:
       config.model_args.num_classes = num_classes
-      train_foreshock_aftershock(config, task_name)
+      train_foreshock_aftershock(config, task_name, args.save_checkpoints)
 
   except Exception as e:
     traceback.print_exc()

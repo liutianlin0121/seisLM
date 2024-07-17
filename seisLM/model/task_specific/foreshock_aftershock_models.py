@@ -95,7 +95,7 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
     if config.use_weighted_layer_sum:
       self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
     self.projector = nn.Linear(
-      config.hidden_size + 3,
+      config.hidden_size,# + 3,
       config.classifier_proj_size
     )
     self.classifier = nn.Linear(config.classifier_proj_size, config.num_classes)
@@ -127,41 +127,29 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
     Returns:
       logits: The classification logits.
     """
-
+    output_hidden_states = True if self.config.use_weighted_layer_sum else False
     outputs = self.wav2vec2(
         input_values,
         attention_mask=None,
         output_attentions=False,
-        output_hidden_states=False,
+        output_hidden_states=output_hidden_states,
     )
 
-    # if self.config.use_weighted_layer_sum:
-    #     hidden_states = outputs[_HIDDEN_STATES_START_POSITION]
-    #     hidden_states = torch.stack(hidden_states, dim=1)
-    #     norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
-    #     hidden_states = (hidden_states * norm_weights.view(-1, 1, 1)).sum(dim=1)
-    # else:
-    # TODO: implement the weighted layer sum version.
+    # _HIDDEN_STATES_START_POSITION = 2
+    if self.config.use_weighted_layer_sum:
+      hidden_states = outputs.hidden_states #outputs[_HIDDEN_STATES_START_POSITION]
 
-    # [B, L, config.hidden_size]
-    hidden_states = outputs.last_hidden_state
+      # [B, num_layers, L, config.hidden_size]
+      hidden_states = torch.stack(hidden_states, dim=1)
+      norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
 
+      # [B, L, config.hidden_size]
+      hidden_states = (hidden_states * norm_weights.view(-1, 1, 1)).sum(dim=1)
+    else:
+      # [B, L, config.hidden_size]
+      hidden_states = outputs.last_hidden_state
 
-    # interp_input: [B, 3, L]
-    interp_input = torch.nn.functional.interpolate(
-      input_values, # [B, 3, L']
-      size=hidden_states.shape[1],
-      mode='linear',
-      align_corners=True,
-    )
-
-    # interp_input: [B, L, 3]
-    interp_input = einops.rearrange(interp_input, 'b c l -> b l c')
-
-    # hidden_states: [B, L, config.hidden_size + 3]
-    hidden_states = torch.cat([hidden_states, interp_input], dim = -1)
-
-    # [B, L, config.hidden_size + 3] -> [B, L, config.classifier_proj_size]
+    # [B, L, config.hidden_size] -> [B, L, config.classifier_proj_size]
     hidden_states = self.projector(hidden_states)
 
     # [B, L, config.classifier_proj_size] -> [B, config.classifier_proj_size]
