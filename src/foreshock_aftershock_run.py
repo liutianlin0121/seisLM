@@ -54,7 +54,6 @@ def train_foreshock_aftershock(
       model_name=config.model_name,
       model_config=config.model_args,
       training_config=config.trainer_args,
-      # max_train_steps=max_train_steps
   )
 
   formatted_time = time.strftime(
@@ -98,10 +97,13 @@ def train_foreshock_aftershock(
         filename="{epoch}-{step}",
     )
     callbacks.append(checkpoint_callback)
+    enable_checkpointing = True
   else:
+    enable_checkpointing = False
     print('Checkpoints will not be saved.')
 
-  if config.model_name == "Wav2Vec2ForSequenceClassification":
+  if (config.model_name == "Wav2Vec2ForSequenceClassification" and
+    config.trainer_args.unfreeze_base_at_epoch > 0):
     callbacks.append(
       shared_task_specific.BaseModelUnfreeze(
         unfreeze_at_epoch=config.trainer_args.unfreeze_base_at_epoch
@@ -123,6 +125,7 @@ def train_foreshock_aftershock(
       strategy=config.trainer_args.strategy,
       accelerator=config.trainer_args.accelerator,
       max_epochs=config.trainer_args.max_epochs,
+      enable_checkpointing=enable_checkpointing,
   )
 
   trainer.fit(model, loaders['train'], loaders['test'])
@@ -152,8 +155,7 @@ if __name__ == "__main__":
   task_name = os.path.basename(__file__)[: -len(".py")]
 
   try:
-    # for num_classes in [4, 9, 8, 2]:
-    for num_classes in [4]:
+    for num_classes in [4, 9, 8, 2]:
       config.model_args.num_classes = num_classes
       train_foreshock_aftershock(config, task_name, args.save_checkpoints)
 

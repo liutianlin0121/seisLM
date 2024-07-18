@@ -98,27 +98,20 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
     num_layers = config.num_hidden_layers + 1
     if config.use_weighted_layer_sum:
       self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
-    self.projector = nn.Linear(config.hidden_size, config.hidden_size)
-    self.classifier = nn.Linear(config.hidden_size, config.num_classes)
-    self.dropout = nn.Dropout(config.classifier_dropout)
+
+    self.mlp_head = nn.Sequential(
+      nn.Linear(config.hidden_size, config.classifier_proj_size, bias=False),
+      nn.BatchNorm1d(config.classifier_proj_size),
+      nn.Tanh(),
+      nn.Dropout(config.classifier_dropout),
+      nn.Linear(config.classifier_proj_size, config.num_classes)
+    )
+
     # Initialize weights and apply final processing
     self.apply(
       lambda module: initialization.init_wav2vec2_weights(
         config=config, module=module)
     )
-    self.initialize_projector()
-
-  def initialize_projector(self) -> None:
-    # Ensure the weight matrix is square
-    if self.projector.weight.shape[0] == self.projector.weight.shape[1]:
-      nn.init.eye_(self.projector.weight)
-    else:
-      raise ValueError(
-        "Weight matrix must be square to initialize with an identity matrix")
-
-    # Initialize bias to zero
-    if self.projector.bias is not None:
-      nn.init.zeros_(self.projector.bias)
 
   def freeze_feature_encoder(self) -> None:
     """Disable the gradient computation for the feature encoder."""
@@ -149,10 +142,8 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
         output_hidden_states=output_hidden_states,
     )
 
-    # _HIDDEN_STATES_START_POSITION = 2
     if self.config.use_weighted_layer_sum:
-      hidden_states = outputs.hidden_states #outputs[_HIDDEN_STATES_START_POSITION]
-
+      hidden_states = outputs.hidden_states
       # [B, num_layers, L, config.hidden_size]
       hidden_states = torch.stack(hidden_states, dim=1)
       norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
@@ -163,13 +154,9 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
       # [B, L, config.hidden_size]
       hidden_states = outputs.last_hidden_state
 
-    # [B, L, config.hidden_size] -> [B, L, config.classifier_proj_size]
-    hidden_states = self.projector(hidden_states)
-
-    # [B, L, config.classifier_proj_size] -> [B, config.classifier_proj_size]
+    # [B, L, config.hidden_size] -> [B, config.hidden_size]
     pooled_output = hidden_states.mean(dim=1)
-    pooled_output = self.dropout(pooled_output)
-    logits = self.classifier(pooled_output)
+    logits = self.mlp_head(pooled_output)
     return logits
 
 
@@ -202,9 +189,9 @@ class ShockClassifierLit(L.LightningModule):
 
       # for key, value in new_config.to_dict().items():
       #   if 'dropout' in key:
-      #     print(f'Orig. {key} value: {value}. New value: 0.1')
-      #     value = 0.1
-      #   setattr(new_config, key, value)
+      #     new_value = 0.1
+      #     print(f'Orig. {key} value: {value}. New value: {new_value}')
+      #     setattr(new_config, key, new_value)
 
       model_config = new_config
       # model_config = config_utils.ConfigTracker(model_config)

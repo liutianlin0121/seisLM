@@ -30,7 +30,6 @@ def init_wav2vec2_weights(
           module.conv.kernel_size[0] * module.conv.in_channels
         )),
     )
-    # nn.init.constant_(module.conv.bias, 0)
     module.conv.bias.data.zero_()
 
   elif isinstance(module, multidim_wav2vec2.Wav2Vec2FeatureProjection):
