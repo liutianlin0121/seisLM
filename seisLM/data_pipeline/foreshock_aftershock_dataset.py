@@ -161,7 +161,6 @@ def extract_input_target_from_dataframe(
       [row[channel_mapping[comp]] for comp in component_order]
       ), axis=1
     ).to_list(),
-    dtype=np.float32,
   )
   if dimension_order == 'NWC':
     input_values = einops.rearrange(input_values, 'n c w -> n w c')

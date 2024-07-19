@@ -94,6 +94,8 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
     super().__init__()
     self.config = config
     self.wav2vec2 = Wav2Vec2Model(config)
+    self.seq_embed_dropout = nn.Dropout(config.seq_embed_dropout)
+    self.drop_time = nn.Dropout1d(config.timesteps_dropout)
     # total num layers is transformer layers + input embeddings
     num_layers = config.num_hidden_layers + 1
     if config.use_weighted_layer_sum:
@@ -154,8 +156,14 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
       # [B, L, config.hidden_size]
       hidden_states = outputs.last_hidden_state
 
+    # Drop the embedding of random timesteps
+    # [B, L, config.hidden_size]
+    hidden_states = self.drop_time(hidden_states)
+
     # [B, L, config.hidden_size] -> [B, config.hidden_size]
     pooled_output = hidden_states.mean(dim=1)
+    # pooled_output = hidden_states[:, -1, :]
+    pooled_output = self.seq_embed_dropout(pooled_output)
     logits = self.mlp_head(pooled_output)
     return logits
 

@@ -155,7 +155,8 @@ if __name__ == "__main__":
   task_name = os.path.basename(__file__)[: -len(".py")]
 
   try:
-    for num_classes in [4, 9, 8, 2]:
+    # for num_classes in [4, 9, 8, 2]:
+    for num_classes in [4]:
       config.model_args.num_classes = num_classes
       train_foreshock_aftershock(config, task_name, args.save_checkpoints)
 
