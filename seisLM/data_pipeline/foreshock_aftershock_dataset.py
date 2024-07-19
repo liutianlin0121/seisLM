@@ -1,6 +1,7 @@
 '''Utility functions for the foreshock aftershock dataset'''
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Union
+from collections import defaultdict
 
 import einops
 import numpy as np
@@ -161,7 +162,9 @@ def extract_input_target_from_dataframe(
       [row[channel_mapping[comp]] for comp in component_order]
       ), axis=1
     ).to_list(),
+    dtype=np.float32
   )
+
   if dimension_order == 'NWC':
     input_values = einops.rearrange(input_values, 'n c w -> n w c')
   targets = np.array(df['label'].to_list())
@@ -294,6 +297,7 @@ def create_foreshock_aftershock_datasets(
   event_split_method: str,
   component_order: str,
   dimension_order: str,
+  remove_class_overlapping_dates: bool = False,
   train_frac: float = 0.70,
   val_frac: float = 0.10,
   test_frac: float = 0.20,
@@ -343,9 +347,55 @@ def create_foreshock_aftershock_datasets(
     seed=seed,
   )
 
+  if remove_class_overlapping_dates:
+    train_data = remove_dates_shared_by_classes(train_data)
+    val_data = remove_dates_shared_by_classes(val_data)
+    test_data = remove_dates_shared_by_classes(test_data)
+
   datasets = {
     'train': train_data,
     'val': val_data,
     'test': test_data
   }
   return datasets
+
+
+
+
+def remove_dates_shared_by_classes(
+  data: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+  """ Remove dates that exist in multiple classes from the dataset."""
+
+  # For each date, record the classes that appear on that date.
+  date_to_classes = defaultdict(set)
+  for timestamp, label in zip(data['occurence_time'], data['y']):
+    date_to_classes[timestamp.date()].add(label)
+
+    # A single date cannot be in more than two classes;
+    # if it is, the dataset is prepared incorrectly.
+    assert len(date_to_classes[timestamp.date()]) <= 2
+
+
+  # Identify dates that appear in more than one class
+  dates_in_multiple_classes = {
+    date for date, classes in date_to_classes.items() if len(classes) > 1
+  }
+
+  # Filter out entries with dates in multiple classes
+  filtered_X = []
+  filtered_y = []
+  filtered_occurence_time = []
+
+  for x, y, timestamp in zip(data['X'], data['y'], data['occurence_time']):
+    if timestamp.date() not in dates_in_multiple_classes:
+      filtered_X.append(x)
+      filtered_y.append(y)
+      filtered_occurence_time.append(timestamp)
+
+  filtered_X = np.array(filtered_X)
+  filtered_y = np.array(filtered_y)
+
+  data['X'] = filtered_X
+  data['y'] = filtered_y
+  data['occurence_time'] = filtered_occurence_time
+  return data

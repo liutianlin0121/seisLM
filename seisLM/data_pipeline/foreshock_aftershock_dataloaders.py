@@ -15,6 +15,7 @@ def prepare_foreshock_aftershock_dataloaders(
   event_split_method: str,
   component_order: str,
   seed: int = 42,
+  remove_class_overlapping_dates: bool = False,
   train_frac: float = 0.70,
   val_frac: float = 0.10,
   test_frac: float = 0.20,
@@ -30,10 +31,13 @@ def prepare_foreshock_aftershock_dataloaders(
     component_order=component_order,
     dimension_order=dimension_order,
     seed=seed,
+    remove_class_overlapping_dates=remove_class_overlapping_dates,
     train_frac=train_frac,
     val_frac=val_frac,
     test_frac=test_frac,
   )
+
+
 
   X_train, y_train = datasets['train']['X'], datasets['train']['y']
   X_val, y_val = datasets['val']['X'], datasets['val']['y']

@@ -110,18 +110,18 @@ for split_random in [False, True]:
       split_random=split_random,
     )
 
-    np.testing.assert_array_equal(X_train, train_data['X'])
+    np.testing.assert_array_equal(X_train.astype(np.float32), train_data['X'])
     np.testing.assert_array_equal(
       y_train, convert_to_one_hot(train_data['y'], num_classes)
     )
 
-    np.testing.assert_array_equal(X_val, val_data['X'])
+    np.testing.assert_array_equal(X_val.astype(np.float32), val_data['X'])
     np.testing.assert_array_equal(
       y_val, convert_to_one_hot(val_data['y'], num_classes)
     )
 
 
-    np.testing.assert_array_equal(X_test, test_data['X'])
+    np.testing.assert_array_equal(X_test.astype(np.float32), test_data['X'])
     np.testing.assert_array_equal(
       y_test, convert_to_one_hot(test_data['y'],num_classes)
     )
