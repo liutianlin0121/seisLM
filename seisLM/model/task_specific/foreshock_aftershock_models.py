@@ -15,6 +15,7 @@ from torch.optim.lr_scheduler import LambdaLR
 
 from seisLM.model.foundation import initialization, pretrained_models
 from seisLM.model.foundation.multidim_wav2vec2 import Wav2Vec2Model
+from einops.layers.torch import Reduce, Rearrange
 
 
 class DoubleConvBlock(nn.Module):
@@ -94,20 +95,44 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
     super().__init__()
     self.config = config
     self.wav2vec2 = Wav2Vec2Model(config)
-    self.seq_embed_dropout = nn.Dropout(config.seq_embed_dropout)
-    self.drop_time = nn.Dropout1d(config.timesteps_dropout)
-    # total num layers is transformer layers + input embeddings
+
     num_layers = config.num_hidden_layers + 1
     if config.use_weighted_layer_sum:
       self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
 
-    self.mlp_head = nn.Sequential(
-      nn.Linear(config.hidden_size, config.classifier_proj_size, bias=False),
-      nn.BatchNorm1d(config.classifier_proj_size),
-      nn.Tanh(),
-      nn.Dropout(config.classifier_dropout),
-      nn.Linear(config.classifier_proj_size, config.num_classes)
+    num_conv_layers = 2
+    in_channels = config.hidden_size
+    layers = [Rearrange('b l c -> b c l')]
+    for i in range(1, num_conv_layers):
+      out_channels = config.hidden_size * (2 ** i)
+      layers.append(
+        DoubleConvBlock(
+          in_channels=in_channels,
+          out_channels=out_channels,
+          kernel_size=3,
+          dropout_rate=0.2
+        )
+      )
+      in_channels = out_channels
+
+    conv_encoder = nn.Sequential(*layers)
+
+    self.conv_head = nn.Sequential(
+      conv_encoder,
+      Reduce('b c l -> b c', reduction='mean'),
+      nn.Linear(out_channels, config.num_classes)
     )
+
+    # self.mlp_head = nn.Sequential(
+    #   nn.Dropout1d(config.timesteps_dropout), # dropout on timestep embeddings
+    #   Reduce('b l c -> b c', reduction='mean'),
+    #   nn.Dropout(config.seq_embed_dropout), # dropout on sequence embeddings
+    #   nn.Linear(config.hidden_size, config.classifier_proj_size, bias=False),
+    #   nn.BatchNorm1d(config.classifier_proj_size),
+    #   nn.Tanh(),
+    #   nn.Dropout(config.classifier_dropout),
+    #   nn.Linear(config.classifier_proj_size, config.num_classes)
+    # )
 
     # Initialize weights and apply final processing
     self.apply(
@@ -156,15 +181,8 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
       # [B, L, config.hidden_size]
       hidden_states = outputs.last_hidden_state
 
-    # Drop the embedding of random timesteps
-    # [B, L, config.hidden_size]
-    hidden_states = self.drop_time(hidden_states)
-
-    # [B, L, config.hidden_size] -> [B, config.hidden_size]
-    pooled_output = hidden_states.mean(dim=1)
-    # pooled_output = hidden_states[:, -1, :]
-    pooled_output = self.seq_embed_dropout(pooled_output)
-    logits = self.mlp_head(pooled_output)
+    # logits = self.mlp_head(hidden_states)
+    logits = self.conv_head(hidden_states)
     return logits
 
 

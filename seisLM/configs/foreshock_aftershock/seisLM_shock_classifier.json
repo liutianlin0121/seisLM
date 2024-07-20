@@ -10,7 +10,8 @@
     "val_frac": 0.10,
     "test_frac": 0.20,
     "standardize": true,
-    "dimension_order": "NCW"
+    "dimension_order": "NCW",
+    "remove_class_overlapping_dates": false
   },
   "trainer_args": {
     "devices": 2,
@@ -27,8 +28,8 @@
     "num_classes": 8,
     "learning_rate": 1e-3,
     "weight_decay": 0.1,
-    "timesteps_dropout": 0.9,
-    "classifier_dropout": 0.9,
-    "seq_embed_dropout": 0.9
+    "timesteps_dropout": 0.8,
+    "classifier_dropout": 0.8,
+    "seq_embed_dropout": 0.8
   }
 }
