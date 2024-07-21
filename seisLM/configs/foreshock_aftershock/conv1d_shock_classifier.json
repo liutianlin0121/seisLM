@@ -16,7 +16,8 @@
     "devices": 2,
     "strategy": "ddp",
     "accelerator": "gpu",
-    "max_epochs": 100
+    "max_epochs": 100,
+    "warmup_frac_step": 0.0
   },
   "model_args": {
     "in_channels": 3,
