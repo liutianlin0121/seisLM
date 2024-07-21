@@ -1,4 +1,5 @@
 import warnings
+import lightning.pytorch as pl
 from ml_collections import ConfigDict
 from transformers import Wav2Vec2Config
 
@@ -27,7 +28,8 @@ def wav2vec2_config_to_configdict(
 
   return config_dict
 
-class ConfigTracker:
+
+class TrackedConfig:
     def __init__(self, config):
         self.config = config
         self.accessed_keys = set()
@@ -44,3 +46,10 @@ class ConfigTracker:
 
     def get_unaccessed_keys(self):
         return set(self.config.keys()) - self.accessed_keys
+
+
+class UnusedConfigLogger(pl.Callback):
+    def on_fit_start(self, trainer, pl_module):
+        unused_keys = pl_module.config.get_unused_keys()
+        if unused_keys:
+            pl_module.logger.info(f"Unused configuration keys: {unused_keys}")

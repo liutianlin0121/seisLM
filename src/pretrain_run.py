@@ -10,25 +10,25 @@ import torch
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import WandbLogger
-from transformers import Wav2Vec2Config
 from seisLM.model.foundation.pretrained_models import LitMultiDimWav2Vec2
 from seisLM.data_pipeline import collator
 from seisLM.data_pipeline import seisbench_dataloaders as dataloaders
 from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
+
 DEFAULT_NUM_WORKERS = 4
 def train_self_supervised(
   *,
   model_config: ml_collections.ConfigDict,
   training_config: ml_collections.ConfigDict,
-  test_run: bool
+  project_name: str
   ) -> None:
   """
   Args:
     model_config: Wav2Vec2Config object
     training_config: config_dict.ConfigDict object
-    test_run: bool
+    test_run: str
   """
 
   seed_everything(training_config.seed)
@@ -37,7 +37,6 @@ def train_self_supervised(
 
   data_collator = \
     collator.DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding(
-        # model=model.model,
         config=model_config,
         mask_time_prob=training_config.mask_time_prob,
         mask_time_length=training_config.mask_time_length,
@@ -76,10 +75,9 @@ def train_self_supervised(
     "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
   )
 
-  project = 'pretrained_seisLM' if not test_run else 'test_pretrained_seisLM'
 
   logger = WandbLogger(
-      project=project,
+      project=project_name,
       save_dir=project_path.MODEL_SAVE_DIR,
       name=f"{training_config.seed}__{formatted_time}",
       id=f"{training_config.seed}__{formatted_time}",
@@ -129,10 +127,10 @@ if __name__ == '__main__':
   )
   args = parser.parse_args()
 
-  model_config = Wav2Vec2Config.from_pretrained(
-    args.model_config_path,
-    attn_implementation="sdpa"
-  )
+  with open(args.model_config_path, "r", encoding="utf-8") as f:
+    model_config = json.load(f)
+  model_config = ml_collections.ConfigDict(model_config)
+
 
   with open(args.training_config_path, "r", encoding="utf-8") as f:
     training_config = json.load(f)
@@ -140,13 +138,17 @@ if __name__ == '__main__':
 
   if args.test_run:
     training_config.num_train_epochs = 1
+    project_name = "test_pretrained_seisLM"
+  else:
+    project_name = "pretrained_seisLM"
 
   try:
     train_self_supervised(
       model_config=model_config,
       training_config=training_config,
-      test_run=args.test_run
+      project_name=project_name
     )
+
   except Exception as e:
     traceback.print_exc()
   finally:

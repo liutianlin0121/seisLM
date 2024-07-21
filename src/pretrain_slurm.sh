@@ -17,5 +17,5 @@ conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench
 
 # no sinkhorn with scaled logits in quantization
 srun python3 pretrain_run.py \
-  --model_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/model_config_4xdownsample_scale_logits_quantization.json \
-  --training_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/training_config.json
+  --model_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/model_config_3encoder_layers_scale_logits_quantization.json \
+  --training_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/training_config.json \
