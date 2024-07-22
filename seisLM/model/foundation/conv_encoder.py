@@ -139,13 +139,10 @@ class Wav2Vec2FeatureEncoder(nn.Module):
           "but has to be one of ['group', 'layer']"
       )
     self.conv_layers = nn.ModuleList(conv_layers)
-    self.gradient_checkpointing = False
-    self._requires_grad = True
 
   def _freeze_parameters(self) -> None:
     for param in self.parameters():
       param.requires_grad = False
-    self._requires_grad = False
 
   def forward(self, input_values: Tensor) -> Tensor:
     # hidden_states: [B, D, L] or [B, 1, L]
@@ -155,10 +152,6 @@ class Wav2Vec2FeatureEncoder(nn.Module):
     else:
       assert input_values.dim() == 3
       hidden_states = input_values
-
-    # make sure hidden_states require grad for gradient_checkpointing
-    if self._requires_grad and self.training:
-      hidden_states.requires_grad = True
 
     for conv_layer in self.conv_layers:
       hidden_states = conv_layer(hidden_states)

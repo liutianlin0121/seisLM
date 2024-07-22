@@ -113,6 +113,14 @@ def train_self_supervised(
   )
 
 if __name__ == '__main__':
+  # TODO: Try the following settings:
+  # # Enable flash attention
+  # torch.backends.cuda.enable_flash_sdp(True)
+  # # Set cuDNN backend flags
+  # torch.backends.cudnn.benchmark = True
+  # torch.backends.cudnn.deterministic = False #True
+  # torch.set_float32_matmul_precision('high')
+
   torch.backends.cudnn.benchmark = True
   torch.backends.cudnn.deterministic = True
   torch.set_float32_matmul_precision('high')

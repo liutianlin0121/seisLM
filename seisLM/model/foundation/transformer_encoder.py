@@ -11,7 +11,7 @@ from seisLM.model.foundation import modeling_outputs
 
 
 class Wav2Vec2PositionalConvEmbedding(nn.Module):
-  """Use a convolutional layer as position embedding."""
+  """Use a convolutional layer, which acts as relative positional embedding."""
   def __init__(self, config: ml_collections.ConfigDict):
     super().__init__()
     self.conv = nn.Conv1d(
@@ -276,9 +276,6 @@ class Wav2Vec2Encoder(nn.Module):
       output_attentions: bool = False,
       output_hidden_states: bool = False,
   ) -> modeling_outputs.BaseModelOutput:
-
-    print("wav2vec2 hidden_states.shape", hidden_states.shape)
-    print("mask", attention_mask)
 
     all_hidden_states = () if output_hidden_states else None
     all_self_attentions = () if output_attentions else None
