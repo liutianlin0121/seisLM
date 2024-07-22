@@ -41,22 +41,24 @@ class TestMultiDimWav2Vec2(unittest.TestCase):
 
   @classmethod
   def setUpClass(cls) -> None:
-    cls.input_values = torch.randn(1, 30000)
+    cls.seed = 42
+    seed_everything(cls.seed)
+    # TODO: why nan loss occurs if the length is shorter than 60000?
+    cls.input_values = torch.randn(1, 60000)
 
-    cls.SEED = 42
-    cls.MODEL_NAMES = [
+    cls.model_names = [
       "patrickvonplaten/wav2vec2-base-v2",
       "facebook/wav2vec2-base"
     ]
     cls.num_negatives = 100
 
   def test_model_params_at_initialization(self) -> None:
-    for model_name in self.MODEL_NAMES:
+    for model_name in self.model_names:
       config = Wav2Vec2Config.from_pretrained(model_name)
-      seed_everything(self.SEED)
+      seed_everything(self.seed)
       model = RefWav2Vec2ForPreTraining(config)
 
-      seed_everything(self.SEED)
+      seed_everything(self.seed)
       ref_model = RefWav2Vec2ForPreTraining(config)
 
       self.assertTrue(compare_model_params(model, ref_model))
@@ -64,11 +66,11 @@ class TestMultiDimWav2Vec2(unittest.TestCase):
   def test_model_outputs(self) -> None:
     for evaluate in [True, False]:
       model_output = {}
-      for model_name in self.MODEL_NAMES:
+      for model_name in self.model_names:
         config = Wav2Vec2Config.from_pretrained(model_name)
 
         for model_type in ['ref', 'new']:
-          seed_everything(0)
+          seed_everything(self.seed)
           if model_type == 'ref':
             model = RefWav2Vec2ForPreTraining(config)
           else:
@@ -91,7 +93,7 @@ class TestMultiDimWav2Vec2(unittest.TestCase):
             sequence_length = get_feat_extract_output_lengths(
               config, raw_sequence_length).item()
 
-          seed_everything(0)
+          seed_everything(self.seed)
           mask_time_indices = _compute_mask_indices(
             shape=(batch_size, sequence_length),
             mask_prob=config.mask_time_prob,
@@ -122,7 +124,7 @@ class TestMultiDimWav2Vec2(unittest.TestCase):
 
           model_output[f'{model_name}_{model_type}'] = outputs
 
-      for name in self.MODEL_NAMES:
+      for name in self.model_names:
         new_output = model_output[f'{name}_new']
         ref_output = model_output[f'{name}_ref']
 
