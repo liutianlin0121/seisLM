@@ -95,44 +95,45 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
     super().__init__()
     self.config = config
     self.wav2vec2 = Wav2Vec2Model(config)
+    self.scalar_param = nn.Parameter(torch.tensor(0.0))
 
     num_layers = config.num_hidden_layers + 1
     if config.use_weighted_layer_sum:
       self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
 
-    num_conv_layers = 2
-    in_channels = config.hidden_size
-    layers = [Rearrange('b l c -> b c l')]
-    for i in range(1, num_conv_layers):
-      out_channels = config.hidden_size * (2 ** i)
-      layers.append(
-        DoubleConvBlock(
-          in_channels=in_channels,
-          out_channels=out_channels,
-          kernel_size=3,
-          dropout_rate=0.2
-        )
-      )
-      in_channels = out_channels
 
-    conv_encoder = nn.Sequential(*layers)
+    # self.conv_extract_features = nn.Sequential(
+    #   Rearrange('b l c -> b c l'),
+    #   DoubleConvBlock(
+    #     in_channels=config.conv_dim[-1],
+    #     out_channels=config.hidden_size,
+    #     kernel_size=3,
+    #     dropout_rate=0.2
+    #   ),
+    # )
 
-    self.conv_head = nn.Sequential(
-      conv_encoder,
-      Reduce('b c l -> b c', reduction='mean'),
-      nn.Linear(out_channels, config.num_classes)
+    self.conv_hidden_states = nn.Sequential(
+      Rearrange('b l c -> b c l'),
+      DoubleConvBlock(
+        in_channels=config.hidden_size,
+        out_channels=config.hidden_size,
+        kernel_size=3,
+        dropout_rate=0.2
+      ),
     )
 
-    # self.mlp_head = nn.Sequential(
-    #   nn.Dropout1d(config.timesteps_dropout), # dropout on timestep embeddings
-    #   Reduce('b l c -> b c', reduction='mean'),
-    #   nn.Dropout(config.seq_embed_dropout), # dropout on sequence embeddings
-    #   nn.Linear(config.hidden_size, config.classifier_proj_size, bias=False),
-    #   nn.BatchNorm1d(config.classifier_proj_size),
-    #   nn.Tanh(),
-    #   nn.Dropout(config.classifier_dropout),
-    #   nn.Linear(config.classifier_proj_size, config.num_classes)
-    # )
+
+    self.conv_head = nn.Sequential(
+      # Rearrange('b l c -> b c l'),
+      DoubleConvBlock(
+        in_channels=config.hidden_size,
+        out_channels=config.hidden_size,
+        kernel_size=3,
+        dropout_rate=0.2
+      ),
+      Reduce('b c l -> b c', reduction='mean'),
+      nn.Linear(config.hidden_size, config.num_classes)
+    )
 
     # Initialize weights and apply final processing
     self.apply(
@@ -182,6 +183,9 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
       hidden_states = outputs.last_hidden_state
 
     # logits = self.mlp_head(hidden_states)
+    hidden_states = self.conv_hidden_states(hidden_states)
+    # extracted = self.conv_extract_features(outputs.extract_features)
+    # hidden_states = hidden_states + extracted
     logits = self.conv_head(hidden_states)
     return logits
 
