@@ -1,23 +1,33 @@
 """ Masking utilities. """
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 import ml_collections
 import torch
 import numpy as np
 
 def get_feat_extract_output_lengths(
     config: ml_collections.ConfigDict,
-    input_lengths: Union[torch.LongTensor, int],
-) -> int:
+    input_lengths: torch.Tensor,
+) -> torch.Tensor:
   """
   Computes the output length of the convolutional layers
+
+  Args:
+    config: ml_collections.ConfigDict object
+    input_lengths: Tensor object of shape [N, ]
+
+  Returns:
+    output_lengths: Tensor object of shape [N, ]
   """
 
   def _conv_out_length(
-    input_length: int, kernel_size: int, stride: int) -> int:
+    input_length: torch.Tensor, kernel_size: int, stride: int) -> torch.Tensor:
     # 1D convolutional layer output length formula taken
     # from https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
+    # return torch.div(
+    #   input_length - kernel_size, stride, rounding_mode="floor") + 1
     return torch.div(
       input_length - kernel_size, stride, rounding_mode="floor") + 1
+
 
   for kernel_size, stride in zip(config.conv_kernel, config.conv_stride):
     input_lengths = _conv_out_length(input_lengths, kernel_size, stride)
@@ -28,7 +38,8 @@ def get_feature_vector_attention_mask(
     config: ml_collections.ConfigDict,
     feature_vector_length: int,
     attention_mask: torch.Tensor,
-) -> torch.BoolTensor:
+) -> torch.Tensor:
+  """Reduce attention mask of raw input to that of extracted features."""
   # Effectively attention_mask.sum(-1), but not inplace to be able to run
   # on inference mode.
   non_padded_lengths = attention_mask.cumsum(dim=-1)[:, -1]
@@ -185,34 +196,34 @@ def compute_mask_indices(
 def sample_negative_indices(
     features_shape: Tuple, num_negatives: int, mask_time_indices: Optional[np.ndarray] = None
 ):
-    """
-    Sample `num_negatives` vectors from feature vectors.
-    """
-    batch_size, sequence_length = features_shape
+  """
+  Sample `num_negatives` vectors from feature vectors.
+  """
+  batch_size, sequence_length = features_shape
 
-    # generate indices of the positive vectors themselves, repeat them `num_negatives` times
-    sequence_length_range = np.arange(sequence_length)
+  # generate indices of the positive vectors themselves, repeat them `num_negatives` times
+  sequence_length_range = np.arange(sequence_length)
 
-    # get `num_negatives` random vector indices from the same utterance
-    sampled_negative_indices = np.zeros(shape=(batch_size, sequence_length, num_negatives), dtype=np.int32)
+  # get `num_negatives` random vector indices from the same utterance
+  sampled_negative_indices = np.zeros(shape=(batch_size, sequence_length, num_negatives), dtype=np.int32)
 
-    mask_time_indices = (
-        mask_time_indices.astype(bool) if mask_time_indices is not None else np.ones(features_shape, dtype=bool)
-    )
+  mask_time_indices = (
+      mask_time_indices.astype(bool) if mask_time_indices is not None else np.ones(features_shape, dtype=bool)
+  )
 
-    for batch_idx in range(batch_size):
-        high = mask_time_indices[batch_idx].sum() - 1
-        mapped_masked_indices = sequence_length_range[mask_time_indices[batch_idx]]
+  for batch_idx in range(batch_size):
+    high = mask_time_indices[batch_idx].sum() - 1
+    mapped_masked_indices = sequence_length_range[mask_time_indices[batch_idx]]
 
-        feature_indices = np.broadcast_to(np.arange(high + 1)[:, None], (high + 1, num_negatives))
-        sampled_indices = np.random.randint(0, high, size=(high + 1, num_negatives))
-        # avoid sampling the same positive vector, but keep the distribution uniform
-        sampled_indices[sampled_indices >= feature_indices] += 1
+    feature_indices = np.broadcast_to(np.arange(high + 1)[:, None], (high + 1, num_negatives))
+    sampled_indices = np.random.randint(0, high, size=(high + 1, num_negatives))
+    # avoid sampling the same positive vector, but keep the distribution uniform
+    sampled_indices[sampled_indices >= feature_indices] += 1
 
-        # remap to actual indices
-        sampled_negative_indices[batch_idx][mask_time_indices[batch_idx]] = mapped_masked_indices[sampled_indices]
+    # remap to actual indices
+    sampled_negative_indices[batch_idx][mask_time_indices[batch_idx]] = mapped_masked_indices[sampled_indices]
 
-        # correct for batch size
-        sampled_negative_indices[batch_idx] += batch_idx * sequence_length
+    # correct for batch size
+    sampled_negative_indices[batch_idx] += batch_idx * sequence_length
 
-    return sampled_negative_indices
+  return sampled_negative_indices

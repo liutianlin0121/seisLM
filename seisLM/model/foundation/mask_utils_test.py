@@ -4,11 +4,11 @@ import unittest
 import numpy as np
 import ml_collections
 from lightning.pytorch import seed_everything
+import torch
 from transformers.models.wav2vec2.modeling_wav2vec2 import (
   _compute_mask_indices, _sample_negative_indices)
-from seisLM.model.foundation.mask_utils import (
-  compute_mask_indices, sample_negative_indices,
-  get_feat_extract_output_lengths)
+from seisLM.model.foundation import mask_utils
+
 
 class TestMaskUtils(unittest.TestCase):
 
@@ -29,7 +29,7 @@ class TestMaskUtils(unittest.TestCase):
     )
 
     seed_everything(0)
-    test_mask_time_indices = compute_mask_indices(
+    test_mask_time_indices = mask_utils.compute_mask_indices(
       shape=(self.batch_size, self.sequence_length),
       mask_prob=self.mask_prob,
       mask_length=self.mask_length
@@ -57,7 +57,7 @@ class TestMaskUtils(unittest.TestCase):
     )
 
     seed_everything(0)
-    test_sampled_negative_indices = sample_negative_indices(
+    test_sampled_negative_indices = mask_utils.sample_negative_indices(
       features_shape=(self.batch_size, self.sequence_length),
       num_negatives=self.num_negatives,
       mask_time_indices=mask_time_indices
@@ -75,11 +75,37 @@ class TestMaskUtils(unittest.TestCase):
     config.conv_stride = [5, 2, 2]
 
     expected_output_length = 5
-    computed_output_length = get_feat_extract_output_lengths(
+    computed_output_length = mask_utils.get_feat_extract_output_lengths(
       config, self.sequence_length
     )
 
     self.assertEqual(computed_output_length, expected_output_length)
+
+  def test_get_feature_vector_attention_mask(self) -> None:
+
+    config = ml_collections.ConfigDict()
+    config.conv_kernel = [8]
+    config.conv_stride = [8]
+    sequence_length = 24
+    batch_size = 2
+
+    attention_mask = torch.ones(batch_size, sequence_length)
+    attention_mask[0, 16:] = 0
+    attention_mask[1, 8:] = 0
+    attention_mask = attention_mask.bool()
+
+    reduced_attention_mask = mask_utils.get_feature_vector_attention_mask(
+      config,
+      feature_vector_length=3,
+      attention_mask=attention_mask,
+    )
+
+    assert torch.equal(
+      reduced_attention_mask,
+      torch.tensor([[True, True, False], [True, False, False]])
+    )
+
+
 
 if __name__ == "__main__":
   unittest.main()
