@@ -1,10 +1,11 @@
 {
-  "model": "MultiDimWav2Vec2ForFrameClassification",
-  "freeze_wav2vec_backbone_epochs": null,
-  "batch_size": 32,
-  "data": "ETHZ",
+  "model_name": "MultiDimWav2Vec2ForFrameClassification",
+  "data_args": {
+    "batch_size": 32,
+    "data_name": "ETHZ"
+  },
   "trainer_args": {
-    "devices": [0,1],
+    "devices": 2,
     "strategy": "ddp",
     "accelerator": "gpu",
     "max_epochs": 50

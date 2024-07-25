@@ -27,9 +27,6 @@
     "use_weighted_layer_sum": false,
     "num_classes": 8,
     "learning_rate": 1e-3,
-    "weight_decay": 0.1,
-    "timesteps_dropout": 0.8,
-    "classifier_dropout": 0.8,
-    "seq_embed_dropout": 0.8
+    "weight_decay": 0.1
   }
 }

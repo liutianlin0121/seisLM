@@ -3,6 +3,8 @@
 Adapted from:
   https://github.com/seisbench/pick-benchmark/blob/main/benchmark/train.py
 
+Example usage:
+python src/phasepick_run.py --config /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_seisLM.json
 
 """
 import argparse
@@ -10,6 +12,7 @@ import traceback
 import os
 import json
 import time
+import ml_collections
 import torch
 import lightning as L
 from lightning.pytorch.callbacks import ModelCheckpoint
@@ -22,7 +25,11 @@ from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
 
-def train_phasepick(config, task_name):
+def train_phasepick(
+  config: ml_collections.ConfigDict,
+  task_name: str,
+  save_checkpoint: bool = False,
+  ) -> None:
   """
   Runs the model training defined by the config.
 
@@ -42,8 +49,9 @@ def train_phasepick(config, task_name):
   seed = config.get("seed", 42)
   seed_everything(seed)
 
-  model_name = config["model"]
-  training_fraction = config.get("training_fraction", 1.0)
+  model_name = config.model_name
+  data_name = config.data_args.data_name
+  training_fraction = config.data_args.get("training_fraction", 1.0)
 
   model = phasepick_models.__getattribute__(model_name + "Lit")(
       **config.get("model_args", {})
@@ -51,8 +59,8 @@ def train_phasepick(config, task_name):
 
   train_loader, dev_loader = dataloaders.prepare_seisbench_dataloaders(
       model=model,
-      data_names=config["data"],
-      batch_size=config.get("batch_size", 1024),
+      data_names=data_name,
+      batch_size=config.data_args.batch_size,
       num_workers=config.get("num_workers", 8),
       training_fraction=training_fraction,
       cache=config.get("cache", None),
@@ -65,7 +73,7 @@ def train_phasepick(config, task_name):
     "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
   )
 
-  run_name = config['data'] + f"_train_frac_{training_fraction}" \
+  run_name = data_name + f"_train_frac_{training_fraction}" \
         + f"_model_{model_name}" + f"_seed_{seed}" + f"_time_{formatted_time}"
 
   logger = WandbLogger(
@@ -75,7 +83,7 @@ def train_phasepick(config, task_name):
       name=run_name,
       # Filter runs based on keywords or categories.
       tags=[
-        f"data_{config['data']}",
+        f"data_{data_name}",
         f"model_{model_name}",
         f"train_frac_{training_fraction}"
       ],
@@ -92,14 +100,20 @@ def train_phasepick(config, task_name):
   logger.log_hyperparams(model.hparams)
   logger.log_hyperparams(config)
 
-  checkpoint_callback = ModelCheckpoint(
-      monitor="val_loss",
-      save_top_k=1,
-      mode='min',
-      filename="{epoch}-{step}",
-  )
-
-  callbacks = [checkpoint_callback]
+  if save_checkpoint:
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val/loss",
+        save_top_k=1,
+        save_last=True,
+        mode='min',
+        filename="{epoch}-{step}",
+    )
+    callbacks = [checkpoint_callback]
+    enable_checkpointing = True
+  else:
+    callbacks = None
+    enable_checkpointing = False
+    print('Checkpoints will not be saved.')
 
   # TODO: Add the option to freeze transformer layers for several epochs.
 
@@ -109,6 +123,7 @@ def train_phasepick(config, task_name):
       default_root_dir=project_path.MODEL_SAVE_DIR,
       logger=logger,
       callbacks=callbacks,
+      enable_checkpointing=enable_checkpointing,
       **config.get("trainer_args", {}),
   )
 
@@ -122,12 +137,18 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
   parser.add_argument("--config", type=str, required=True)
+  parser.add_argument(
+      "--save_checkpoints", action="store_true",
+      help="Run in test mode for profiling purposes"
+  )
+
   args = parser.parse_args()
 
 
   with open(args.config, "r", encoding="utf-8") as f:
     config = json.load(f)
 
+  config = ml_collections.ConfigDict(config)
   task_name = os.path.basename(__file__)[: -len(".py")]
 
   try:

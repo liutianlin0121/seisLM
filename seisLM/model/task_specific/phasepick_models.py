@@ -12,8 +12,9 @@ https://github.com/seisbench/pick-benchmark/blob/main/benchmark/models.py
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, Any
 
+import ml_collections
 import einops
 import lightning as L
 import numpy as np
@@ -22,11 +23,11 @@ import seisbench.models as sbm
 import torch
 from torch import Tensor
 import torch.nn as nn
-import transformers.models.wav2vec2.modeling_wav2vec2 as hf_wav2vec2
 from transformers.modeling_outputs import TokenClassifierOutput
 
 from seisLM.model.foundation import pretrained_models
-from seisLM.model.foundation.multidim_wav2vec2 import Wav2Vec2Model
+from seisLM.model.task_specific.shared_task_specific import (
+  BaseMultiDimWav2Vec2ForDownstreamTasks)
 from seisLM.utils.data_utils import phase_dict
 
 
@@ -60,7 +61,7 @@ class SeisBenchModuleLit(L.LightningModule, ABC):
   """
 
   @abstractmethod
-  def get_augmentations(self):
+  def get_augmentations(self) -> Any:
     """
     Returns a list of augmentations that can be passed to the
     seisbench.generate.GenericGenerator
@@ -74,14 +75,14 @@ class SeisBenchModuleLit(L.LightningModule, ABC):
     """
     return self.get_augmentations()
 
-  def get_val_augmentations(self):
+  def get_val_augmentations(self) -> Any:
     """
     Returns the set of validation augmentations for validations during training.
     """
     return self.get_augmentations()
 
   @abstractmethod
-  def get_eval_augmentations(self):
+  def get_eval_augmentations(self) -> Any:
     """
     Returns the set of evaluation augmentations for evaluation after training.
     These augmentations will be passed to a SteeredGenerator and should usually
@@ -219,57 +220,26 @@ class PhaseNetLit(SeisBenchModuleLit):
     return score_detection, score_p_or_s, p_sample, s_sample
 
 
-_HIDDEN_STATES_START_POSITION = 2
-
 class MultiDimWav2Vec2ForFrameClassification(
-  hf_wav2vec2.Wav2Vec2ForAudioFrameClassification):
+  BaseMultiDimWav2Vec2ForDownstreamTasks):
   """ Wav2Vec2 model with a contrastive loss head."""
-  # TODO: remove the inheritance.
 
-  def __init__(self, config: hf_wav2vec2.Wav2Vec2Config):
+  def __init__(self, config: ml_collections.ConfigDict):
     super().__init__(config)
-    self.wav2vec2 = Wav2Vec2Model(config)
     self.classifier = nn.Linear(
       config.hidden_size + config.input_dim,
       config.num_labels
     )
+    self.num_labels = config.num_labels
 
   def forward(
       self,
       input_values: Optional[torch.Tensor],
   ) -> Union[Tuple, TokenClassifierOutput]:
-    r"""
-    labels (`torch.LongTensor` of shape `(batch_size, target_length, num_labels)`,
-        *optional*):
-        Onehot labels for computing the frame classification loss.
-    """
+    """The forward pass of the frame classification model."""
 
-    # input_values: [batch_size, num_channels, seq_len]
+    hidden_states = self.get_wav2vec2_hidden_states(input_values)
     input_seq_length = input_values.shape[-1]
-
-    output_hidden_states = (
-      True if self.config.use_weighted_layer_sum else False
-    )
-
-    outputs = self.wav2vec2(
-        input_values,
-        attention_mask=None,
-        output_attentions=None,
-        output_hidden_states=output_hidden_states,
-    )
-
-
-    # The resulting hidden_states: [batch_size, seq_len, hidden_size]
-    # if self.config.use_weighted_layer_sum:
-      # hidden_states = outputs[_HIDDEN_STATES_START_POSITION]
-      # hidden_states = torch.stack(hidden_states, dim=1)
-      # norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
-      # hidden_states = (hidden_states * norm_weights.view(-1, 1, 1)).sum(dim=1)
-    # else:
-      # hidden_states = outputs[0]
-
-    # TODO: implement the weighted layer sum version.
-    hidden_states = outputs.last_hidden_state
 
     # If seq_length of hidden_states and labels are not the same, we need to
     # interpolate the hidden_states to match the labels.

@@ -15,6 +15,9 @@ from torch.optim.lr_scheduler import LambdaLR
 
 from seisLM.model.foundation import initialization, pretrained_models
 from seisLM.model.foundation.multidim_wav2vec2 import Wav2Vec2Model
+from seisLM.model.task_specific.shared_task_specific import (
+  BaseMultiDimWav2Vec2ForDownstreamTasks)
+
 from einops.layers.torch import Reduce, Rearrange
 
 
@@ -88,31 +91,11 @@ class Conv1DShockClassifier(nn.Module):
     return x
 
 
-
-
-class Wav2Vec2ForSequenceClassification(nn.Module):
+class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
   def __init__(self, config: ml_collections.ConfigDict):
-    super().__init__()
-    self.config = config
-    self.wav2vec2 = Wav2Vec2Model(config)
-    self.scalar_param = nn.Parameter(torch.tensor(0.0))
+    super().__init__(config)
 
-    num_layers = config.num_hidden_layers + 1
-    if config.use_weighted_layer_sum:
-      self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
-
-
-    # self.conv_extract_features = nn.Sequential(
-    #   Rearrange('b l c -> b c l'),
-    #   DoubleConvBlock(
-    #     in_channels=config.conv_dim[-1],
-    #     out_channels=config.hidden_size,
-    #     kernel_size=3,
-    #     dropout_rate=0.2
-    #   ),
-    # )
-
-    self.conv_hidden_states = nn.Sequential(
+    self.conv_head = nn.Sequential(
       Rearrange('b l c -> b c l'),
       DoubleConvBlock(
         in_channels=config.hidden_size,
@@ -120,40 +103,17 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
         kernel_size=3,
         dropout_rate=0.2
       ),
-    )
-
-
-    self.conv_head = nn.Sequential(
-      # Rearrange('b l c -> b c l'),
       DoubleConvBlock(
         in_channels=config.hidden_size,
-        out_channels=config.hidden_size,
+        out_channels=config.classifier_proj_size,
         kernel_size=3,
         dropout_rate=0.2
       ),
       Reduce('b c l -> b c', reduction='mean'),
-      nn.Linear(config.hidden_size, config.num_classes)
+      nn.Linear(config.classifier_proj_size, config.num_classes)
     )
 
-    # Initialize weights and apply final processing
-    self.apply(
-      lambda module: initialization.init_wav2vec2_weights(
-        config=config, module=module)
-    )
-
-  def freeze_feature_encoder(self) -> None:
-    """Disable the gradient computation for the feature encoder."""
-    self.wav2vec2.feature_extractor._freeze_parameters() # pylint: disable=protected-access
-
-  def freeze_base_model(self) -> None:
-    """Disable the gradient computation for the base model."""
-    for param in self.wav2vec2.parameters():
-      param.requires_grad = False
-
-  def forward(
-      self,
-      input_values: Optional[torch.Tensor],
-  ) -> Tensor:
+  def forward(self, input_values: torch.Tensor,) -> Tensor:
     """The forward pass of the sequence classification model.
 
     Args:
@@ -162,30 +122,7 @@ class Wav2Vec2ForSequenceClassification(nn.Module):
     Returns:
       logits: The classification logits.
     """
-    output_hidden_states = True if self.config.use_weighted_layer_sum else False
-    outputs = self.wav2vec2(
-        input_values,
-        attention_mask=None,
-        output_attentions=False,
-        output_hidden_states=output_hidden_states,
-    )
-
-    if self.config.use_weighted_layer_sum:
-      hidden_states = outputs.hidden_states
-      # [B, num_layers, L, config.hidden_size]
-      hidden_states = torch.stack(hidden_states, dim=1)
-      norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
-
-      # [B, L, config.hidden_size]
-      hidden_states = (hidden_states * norm_weights.view(-1, 1, 1)).sum(dim=1)
-    else:
-      # [B, L, config.hidden_size]
-      hidden_states = outputs.last_hidden_state
-
-    # logits = self.mlp_head(hidden_states)
-    hidden_states = self.conv_hidden_states(hidden_states)
-    # extracted = self.conv_extract_features(outputs.extract_features)
-    # hidden_states = hidden_states + extracted
+    hidden_states = self.get_wav2vec2_hidden_states(input_values)
     logits = self.conv_head(hidden_states)
     return logits
 

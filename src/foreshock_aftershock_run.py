@@ -1,8 +1,8 @@
-"""Training script for the phase picking.
+"""Training script for the foreshock-aftershock classification.
 
-Adapted from:
-  https://github.com/seisbench/pick-benchmark/blob/main/benchmark/train.py
+Example usage:
 
+python foreshock_aftershock_run.py --config /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/foreshock_aftershock/seisLM_shock_classifier.json
 
 """
 import argparse
