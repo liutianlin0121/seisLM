@@ -74,6 +74,7 @@ class TestMultiDimWav2Vec2(unittest.TestCase):
           if model_type == 'ref':
             model = RefWav2Vec2ForPreTraining(config)
           else:
+            config.use_rms_norm = False
             ref_model = RefWav2Vec2ForPreTraining(config)
             model = MultiDimWav2Vec2ForPreTraining(config)
             model.load_state_dict(ref_model.state_dict())

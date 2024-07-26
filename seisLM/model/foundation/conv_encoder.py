@@ -9,6 +9,7 @@ D: feature dimension
 import einops
 import ml_collections
 from torch import Tensor, nn
+from torchtune.modules import RMSNorm
 
 
 class Wav2Vec2NoLayerNormConvLayer(nn.Module):
@@ -52,6 +53,7 @@ class Wav2Vec2LayerNormConvLayer(nn.Module):
         )
     )
 
+    LayerOrRMSNorm = RMSNorm if config.use_rms_norm else nn.LayerNorm
     self.out_conv_dim = config.conv_dim[layer_id]
 
     self.conv = nn.Conv1d(
@@ -61,7 +63,7 @@ class Wav2Vec2LayerNormConvLayer(nn.Module):
         stride=config.conv_stride[layer_id],
         bias=config.conv_bias,
     )
-    self.layer_norm = nn.LayerNorm(
+    self.layer_norm = LayerOrRMSNorm(
       self.out_conv_dim, elementwise_affine=True
     )
     self.activation = nn.functional.gelu

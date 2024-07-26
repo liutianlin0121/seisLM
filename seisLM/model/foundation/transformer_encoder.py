@@ -5,8 +5,8 @@ import ml_collections
 import einops
 import torch
 from torch import nn, Tensor
-import transformers.models.wav2vec2.modeling_wav2vec2 as hf_wav2vec2
-
+# import transformers.models.wav2vec2.modeling_wav2vec2 as hf_wav2vec2
+from torchtune.modules import RMSNorm
 from seisLM.model.foundation import modeling_outputs
 
 
@@ -76,6 +76,85 @@ class Wav2Vec2FeedForward(nn.Module):
     hidden_states = self.output_dropout(hidden_states)
     return hidden_states
 
+
+
+class Wav2Vec2SdpaAttention(nn.Module):
+  def __init__(
+      self,
+      embed_dim: int,
+      num_heads: int,
+      dropout: float = 0.0,
+      bias: bool = True,
+  ):
+    super().__init__()
+    self.embed_dim = embed_dim
+    self.num_heads = num_heads
+    self.dropout = dropout
+    self.head_dim = embed_dim // num_heads
+
+    if (self.head_dim * num_heads) != self.embed_dim:
+      raise ValueError(
+          f"embed_dim must be divisible by num_heads "
+          f"(got `embed_dim`: {self.embed_dim}"
+          f" and `num_heads`: {num_heads})."
+      )
+    self.scaling = self.head_dim**-0.5
+
+    self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+    self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+    self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+    self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+
+  def _shape(self,
+             tensor: torch.Tensor, seq_len: int, bsz: int) -> torch.Tensor:
+    return tensor.view(
+      bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
+
+  def forward(
+      self,
+      hidden_states: torch.Tensor,
+      attention_mask: Optional[torch.Tensor] = None,
+      output_attentions: bool = False,
+  ) -> Tuple[torch.Tensor, Optional[torch.Tensor],
+             Optional[Tuple[torch.Tensor]]]:
+    """Input shape: Batch x Time x Channel"""
+    assert output_attentions is False, "output_attentions not supported"
+    bsz, tgt_len, _ = hidden_states.size()
+    query_states = self.q_proj(hidden_states)
+    key_states = self._shape(self.k_proj(hidden_states), -1, bsz)
+    value_states = self._shape(self.v_proj(hidden_states), -1, bsz)
+    query_states = self._shape(query_states, tgt_len, bsz)
+
+    # NOTE: SDPA with memory-efficient backend is currently (torch==2.1.2)
+    # bugged when using non-contiguous inputs and a custom attn_mask,
+    # but we are fine here as `_shape` do call `.contiguous()`.
+    # Reference: https://github.com/pytorch/pytorch/issues/112577
+    attn_output = torch.nn.functional.scaled_dot_product_attention(
+        query_states,
+        key_states,
+        value_states,
+        attn_mask=attention_mask,
+        dropout_p=self.dropout if self.training else 0.0,
+        is_causal=False,
+    )
+
+    if attn_output.size() != (bsz, self.num_heads, tgt_len, self.head_dim):
+      raise ValueError(
+          f"`attn_output` should be of size"
+          f" {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is"
+          f" {attn_output.size()}"
+      )
+
+    attn_output = attn_output.transpose(1, 2)
+
+    # Use the `embed_dim` from the config (stored in the class) rather
+    # than `hidden_state` because `attn_output` can be
+    # partitioned across GPUs when using tensor-parallelism.
+    attn_output = attn_output.reshape(bsz, tgt_len, self.embed_dim)
+    attn_output = self.out_proj(attn_output)
+    return attn_output, None, None
+
+
 class Wav2Vec2EncoderBase(nn.Module): # pylint: disable=abstract-method
   """ Base Wav2Vec2 encoder.
 
@@ -85,19 +164,21 @@ class Wav2Vec2EncoderBase(nn.Module): # pylint: disable=abstract-method
   """
   def __init__(self, config: ml_collections.ConfigDict):
     super().__init__()
-    self.attention = hf_wav2vec2.Wav2Vec2SdpaAttention(
+    # self.attention = hf_wav2vec2.Wav2Vec2SdpaAttention(
+    self.attention = Wav2Vec2SdpaAttention(
         embed_dim=config.hidden_size,
         num_heads=config.num_attention_heads,
         dropout=config.attention_dropout,
-        is_decoder=False,
+        # is_decoder=False,
     )
+    LayerOrRMSNorm = RMSNorm if config.use_rms_norm else nn.LayerNorm
 
     self.dropout = nn.Dropout(config.hidden_dropout)
-    self.layer_norm = nn.LayerNorm(
+    self.layer_norm = LayerOrRMSNorm(
       config.hidden_size, eps=config.layer_norm_eps
     )
     self.feed_forward = Wav2Vec2FeedForward(config)
-    self.final_layer_norm = nn.LayerNorm(
+    self.final_layer_norm = LayerOrRMSNorm(
       config.hidden_size, eps=config.layer_norm_eps
     )
 
@@ -179,7 +260,10 @@ class Wav2Vec2EncoderStableLayerNorm(nn.Module):
     super().__init__()
     self.config = config
     self.pos_conv_embed = Wav2Vec2PositionalConvEmbedding(config)
-    self.layer_norm = nn.LayerNorm(
+
+    LayerOrRMSNorm = RMSNorm if config.use_rms_norm else nn.LayerNorm
+
+    self.layer_norm = LayerOrRMSNorm(
       config.hidden_size, eps=config.layer_norm_eps
     )
     self.dropout = nn.Dropout(config.hidden_dropout)
@@ -259,7 +343,10 @@ class Wav2Vec2Encoder(nn.Module):
     super().__init__()
     self.config = config
     self.pos_conv_embed = Wav2Vec2PositionalConvEmbedding(config)
-    self.layer_norm = nn.LayerNorm(
+
+    LayerOrRMSNorm = RMSNorm if config.use_rms_norm else nn.LayerNorm
+
+    self.layer_norm = LayerOrRMSNorm(
       config.hidden_size, eps=config.layer_norm_eps
     )
     self.dropout = nn.Dropout(config.hidden_dropout)
