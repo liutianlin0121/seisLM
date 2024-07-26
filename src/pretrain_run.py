@@ -1,4 +1,12 @@
-"""Training of earthquake language model."""
+"""Training of earthquake language model.
+
+python src/pretrain_run.py \
+  --model_config_path=/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/model_config_4xdownsample_scale_logits_quantization.json \
+  --training_config_path=/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/training_config.json \
+  --test_run
+
+
+"""
 import argparse
 import traceback
 import os
@@ -145,7 +153,11 @@ if __name__ == '__main__':
   training_config = ml_collections.ConfigDict(training_config)
 
   if args.test_run:
+    # if test_run is True, train on ETHZ for only 1 epoch.
+    print("Running in test mode")
     training_config.num_train_epochs = 1
+    training_config.data_name = ['ETHZ']
+    training_config.local_batch_size = 8
     project_name = "test_pretrained_seisLM"
   else:
     project_name = "pretrained_seisLM"
