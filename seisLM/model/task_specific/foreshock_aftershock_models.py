@@ -1,6 +1,6 @@
 """ Models for the foreshock-aftershock classification task. """
 import math
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple, Union, Any, Sequence
 
 import lightning as L
 import ml_collections
@@ -13,8 +13,7 @@ from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
 
-from seisLM.model.foundation import initialization, pretrained_models
-from seisLM.model.foundation.multidim_wav2vec2 import Wav2Vec2Model
+from seisLM.model.foundation import pretrained_models
 from seisLM.model.task_specific.shared_task_specific import (
   BaseMultiDimWav2Vec2ForDownstreamTasks)
 
@@ -51,7 +50,7 @@ class DoubleConvBlock(nn.Module):
       nn.Dropout(dropout_rate),
     )
 
-  def forward(self, x):
+  def forward(self, x: Tensor) -> Tensor:
     x = self.double_conv(x)
     return x
 
@@ -134,13 +133,11 @@ class ShockClassifierLit(L.LightningModule):
     self,
     model_name: str,
     model_config: ml_collections.ConfigDict,
-    # max_train_steps: int,
     training_config: ml_collections.ConfigDict
     ):
     super().__init__()
     self.save_hyperparameters()
     self.training_config = training_config
-    # self.max_train_steps = max_train_steps
 
     if model_name == "Conv1DShockClassifier":
       self.model = Conv1DShockClassifier(model_config)
@@ -226,23 +223,13 @@ class ShockClassifierLit(L.LightningModule):
     self.log("test/loss", loss, sync_dist=True, prog_bar=True)
     self.log("test/acc", self.test_acc, sync_dist=True, prog_bar=True)
 
-  def configure_optimizers(self) -> Dict:
+  def configure_optimizers(self): # type: ignore
+
     optimizer = torch.optim.AdamW(
         filter(lambda p: p.requires_grad, self.parameters()),
         lr=self.model_config.learning_rate,
         weight_decay=self.model_config.weight_decay,
     )
-    # tmax = int(self.max_train_steps // self.trainer.num_devices)
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-    #   optimizer, T_max=tmax
-    # )
-    # sched_config = {
-    #     'scheduler': scheduler,
-    #     'interval': "step",
-    #     'frequency': 1,
-    # }
-
-    # return {"optimizer": optimizer, "lr_scheduler": sched_config}
 
     t_max = int(
       self.training_config.max_train_steps // self.trainer.num_devices
@@ -252,7 +239,7 @@ class ShockClassifierLit(L.LightningModule):
     )
 
     # Linear warmup and half-cycle cosine decay
-    def lr_lambda(step):
+    def lr_lambda(step: int): # type: ignore
       if step < t_warmup:
         # Linear warm-up
         return step / t_warmup

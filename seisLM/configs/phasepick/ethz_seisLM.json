@@ -12,7 +12,8 @@
   },
   "model_args": {
     "sample_boundaries": [null, null],
+    "use_weighted_layer_sum": false,
     "lr": 2e-4,
-    "model_name_or_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/42__2024-07-06-11h-30m-09s/checkpoints/epoch=22-step=604624.ckpt"
+    "model_name_or_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/42__2024-07-22-02h-07m-23s/checkpoints/epoch=37-step=998944.ckpt"
   }
 }

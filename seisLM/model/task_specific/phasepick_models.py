@@ -69,7 +69,7 @@ class SeisBenchModuleLit(L.LightningModule, ABC):
     :return: List of augmentations
     """
 
-  def get_train_augmentations(self):
+  def get_train_augmentations(self) -> Any:
     """
     Returns the set of training augmentations.
     """
@@ -90,7 +90,7 @@ class SeisBenchModuleLit(L.LightningModule, ABC):
     """
 
   @abstractmethod
-  def predict_step(self, batch, batch_idx=None, dataloader_idx=None):
+  def predict_step(self, batch, batch_idx=None, dataloader_idx=None) -> Tuple:
     """
     Predict step for the lightning module. Returns results for three tasks:
 
@@ -281,7 +281,7 @@ class MultiDimWav2Vec2ForFrameClassificationLit(PhaseNetLit):
    num_labels: Number of labels for the classification task.
   """
 
-  def __init__(self, model_name_or_path, lr=1e-2, sigma=20,
+  def __init__(self, model_name_or_path, lr=1e-2, sigma=20, use_weighted_layer_sum=False,
               sample_boundaries=(None, None), num_labels=3, **kwargs):
     super().__init__(
         lr=lr, sigma=sigma, sample_boundaries=sample_boundaries, **kwargs
@@ -294,6 +294,7 @@ class MultiDimWav2Vec2ForFrameClassificationLit(PhaseNetLit):
 
     model_config = pretrained_model.config
     model_config.num_labels = num_labels
+    model_config.use_weighted_layer_sum = use_weighted_layer_sum
 
     self.model = MultiDimWav2Vec2ForFrameClassification(model_config)
 
