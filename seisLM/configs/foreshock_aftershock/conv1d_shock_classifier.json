@@ -9,8 +9,9 @@
     "train_frac": 0.7,
     "val_frac": 0.10,
     "test_frac": 0.20,
-    "standardize": true,
-    "dimension_order": "NCW"
+    "dimension_order": "NCW",
+    "demean": false,
+    "devide_by_std": true
   },
   "trainer_args": {
     "devices": 2,

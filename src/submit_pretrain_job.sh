@@ -1,8 +1,8 @@
 #!/bin/bash
 
 JOB_NAME="pretrain"
-# TEST_RUN=true
-TEST_RUN=false
+TEST_RUN=true
+# TEST_RUN=false
 CONFIG_DIR="/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs"
 SCRIPT_NAME="pretrain_slurm.sh"
 

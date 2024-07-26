@@ -19,9 +19,10 @@ def prepare_foreshock_aftershock_dataloaders(
   train_frac: float = 0.70,
   val_frac: float = 0.10,
   test_frac: float = 0.20,
-  standardize: bool = True,
+  demean: bool = True,
+  devide_by_std: bool = True,
   num_workers: int = 8,
-  dimension_order: str = 'NCW'
+  dimension_order: str = 'NCW',
   ) -> Dict[str, torch.utils.data.DataLoader]:
   ''' Create dataloaders for the foreshock-aftershock dataset.'''
 
@@ -45,23 +46,21 @@ def prepare_foreshock_aftershock_dataloaders(
 
 
 
-  if standardize:
 
-    normalizer = Normalize(
-      demean_axis=dimension_order.index('W'),
-      amp_norm_axis=dimension_order.index('W'),
-      amp_norm_type='peak'
-      )
+  normalizer = Normalize(
+    demean_axis=dimension_order.index('W') if demean else None,
+    amp_norm_axis=dimension_order.index('W') if devide_by_std else None,
+    amp_norm_type='std',
+  )
 
-    def normalize(X: np.ndarray) -> np.ndarray:
-      X = normalizer._demean(X) # pylint: disable=protected-access
-      X = normalizer._detrend(X) # pylint: disable=protected-access
-      X = normalizer._amp_norm(X) # pylint: disable=protected-access
-      return X
+  def normalize(X: np.ndarray) -> np.ndarray:
+    X = normalizer._demean(X) # pylint: disable=protected-access
+    X = normalizer._amp_norm(X) # pylint: disable=protected-access
+    return X
 
-    X_train = normalize(X_train)
-    X_val = normalize(X_val)
-    X_test = normalize(X_test)
+  X_train = normalize(X_train)
+  X_val = normalize(X_val)
+  X_test = normalize(X_test)
 
   X_train, y_train = torch.from_numpy(X_train), torch.from_numpy(y_train)
   X_val, y_val = torch.from_numpy(X_val), torch.from_numpy(y_val)
