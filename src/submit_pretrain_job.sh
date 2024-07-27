@@ -1,8 +1,8 @@
 #!/bin/bash
 
 JOB_NAME="pretrain"
-TEST_RUN=true
-# TEST_RUN=false
+# TEST_RUN=true
+TEST_RUN=false
 CONFIG_DIR="/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs"
 SCRIPT_NAME="pretrain_slurm.sh"
 
@@ -43,8 +43,7 @@ conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench
 
 # no sinkhorn with scaled logits in quantization
 srun python3 pretrain_run.py \\
-  --model_config_path ${CONFIG_DIR}/${JOB_NAME}/model_config_3encoder_layers_scale_logits_quantization.json \\
-  --training_config_path ${CONFIG_DIR}/${JOB_NAME}/training_config.json \\
+  --config_path ${CONFIG_DIR}/${JOB_NAME}/pretrain_config_rmsnorm_std_nomean_reduce_codevectors.json \\
 EOT
 
 if [ "$TEST_RUN" = true ]; then

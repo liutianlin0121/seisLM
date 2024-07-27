@@ -161,7 +161,11 @@ class LitMultiDimWav2Vec2(L.LightningModule):
             strategy="pad",
         ),
         sbg.ChangeDtype(np.float32),
-        sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
+        sbg.Normalize(
+          demean_axis= -1 if self.config.data_config.demean else None,
+          amp_norm_axis= -1 if self.config.data_config.amp_norm else None,
+          amp_norm_type=self.config.data_config.amp_norm_type,
+        ),
     ]
 
   def get_val_augmentations(self) -> List:

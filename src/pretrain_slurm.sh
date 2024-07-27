@@ -8,8 +8,8 @@
 #SBATCH --ntasks-per-node=4      # Total number of tasks per node
 #SBATCH --output=pretrain.o%j # Path and name to the file for the STDOUT
 #SBATCH --partition=a100         # Partition to allocate your job
-#SBATCH --qos=30min             # Selected queue to allocate your job
-#SBATCH --time=0-00:10:00       # Maximum allocated time
+#SBATCH --qos=1week              # Selected queue to allocate your job
+#SBATCH --time=7-00:00:00       # Maximum allocated time
 
 source ~/anaconda3/etc/profile.d/conda.sh
 
@@ -17,6 +17,4 @@ conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench
 
 # no sinkhorn with scaled logits in quantization
 srun python3 pretrain_run.py \
-  --model_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/model_config_3encoder_layers_scale_logits_quantization.json \
-  --training_config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/training_config.json \
-  --test_run
+  --config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/pretrain_config_rmsnorm_std_nomean_reduce_codevectors.json \

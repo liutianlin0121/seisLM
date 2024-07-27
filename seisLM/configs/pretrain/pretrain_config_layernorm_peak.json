@@ -82,6 +82,9 @@
     "local_batch_size": 28,
     "training_fraction": 1.0,
     "cache_dataset": null,
-    "prefetch_factor": 2
+    "prefetch_factor": 2,
+    "demean": true,
+    "amp_norm": true,
+    "amp_norm_type": "peak"
   }
 }
