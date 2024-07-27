@@ -1,7 +1,7 @@
 """Training of earthquake language model.
 
 python src/pretrain_run.py \
-  --config_path=/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/pretrain_config.json \
+  --config_path=/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/pretrain_config_rmsnorm_std_nomean_reduce_codevectors_rope.json \
   --test_run
 
 
@@ -147,7 +147,7 @@ if __name__ == '__main__':
   if args.test_run:
     # if test_run is True, train on ETHZ for only 1 epoch w/ a small batchsize.
     print("Running in test mode")
-    config.training_config.max_epochs = 1
+    config.training_config.max_epochs = 5
     config.data_config.data_name = ['ETHZ']
     config.data_config.local_batch_size = 8
     project_name = "test_pretrained_seisLM"

@@ -2,10 +2,9 @@
 import math
 from torch import nn
 import ml_collections
-from seisLM.model.foundation import transformer_encoder
 from seisLM.model.foundation import quantizer
 from seisLM.model.foundation import multidim_wav2vec2
-
+from seisLM.model.foundation import position_embedding
 def init_wav2vec2_weights(
   *,
   config: ml_collections.ConfigDict,
@@ -22,7 +21,7 @@ def init_wav2vec2_weights(
     module.weight_proj.weight.data.normal_(mean=0.0, std=1)
     module.weight_proj.bias.data.zero_()
     nn.init.uniform_(module.codevectors)
-  elif isinstance(module, transformer_encoder.Wav2Vec2PositionalConvEmbedding):
+  elif isinstance(module, position_embedding.Wav2Vec2PositionalConvEmbedding):
     nn.init.normal_(
         module.conv.weight,
         mean=0,
@@ -52,5 +51,3 @@ def init_wav2vec2_weights(
         module.in_channels * module.kernel_size[0])
       )
       nn.init.uniform_(module.bias, a=-k, b=k)
-
-

@@ -75,6 +75,8 @@ class TestMultiDimWav2Vec2(unittest.TestCase):
             model = RefWav2Vec2ForPreTraining(config)
           else:
             config.use_rms_norm = False
+            config.rotary_pos_embed = False
+            config.conv_embed = True
             ref_model = RefWav2Vec2ForPreTraining(config)
             model = MultiDimWav2Vec2ForPreTraining(config)
             model.load_state_dict(ref_model.state_dict())

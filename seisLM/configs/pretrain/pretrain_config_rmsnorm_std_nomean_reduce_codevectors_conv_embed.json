@@ -50,6 +50,8 @@
     "output_hidden_states": false,
     "pad_token_id": 0,
     "proj_codevector_dim": 256,
+    "rotary_pos_embed": false,
+    "conv_embed": true,
     "scale_logits_in_quantization": true,
     "use_rms_norm": true
   },

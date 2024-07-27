@@ -2,54 +2,11 @@
 """Attention-based feature encoder of Wav2Vec2"""
 from typing import Optional, Tuple, Union
 import ml_collections
-import einops
 import torch
 from torch import nn, Tensor
-# import transformers.models.wav2vec2.modeling_wav2vec2 as hf_wav2vec2
 from torchtune.modules import RMSNorm
 from seisLM.model.foundation import modeling_outputs
-
-
-class Wav2Vec2PositionalConvEmbedding(nn.Module):
-  """Use a convolutional layer, which acts as relative positional embedding."""
-  def __init__(self, config: ml_collections.ConfigDict):
-    super().__init__()
-    self.conv = nn.Conv1d(
-        config.hidden_size,
-        config.hidden_size,
-        kernel_size=config.num_conv_pos_embeddings,
-        padding=config.num_conv_pos_embeddings // 2,
-        groups=config.num_conv_pos_embedding_groups,
-    )
-
-    weight_norm = nn.utils.weight_norm
-    if hasattr(nn.utils.parametrizations, "weight_norm"):
-      weight_norm = nn.utils.parametrizations.weight_norm
-
-    self.conv = weight_norm(self.conv, name="weight", dim=2)
-
-    self.activation = nn.functional.gelu
-
-    # With a kernel size k, padding k//2, and stride 1, the output of the
-    # conv layer has a length of (input_length + 2 (k//2) - k + 1).
-    # So if k is even, the output is 1 element longer than the input;
-    # we remove the last element to ensure that the
-    # position embeddings have the same size as the input sequence.
-    # If k is odd, the output has the same length as the input, so we don't
-    # need to remove any elements.
-    self.remove_one_right = (
-      True if config.num_conv_pos_embeddings % 2 == 0 else False
-    )
-
-  def forward(self, hidden_states: Tensor) -> Tensor:
-    hidden_states = einops.rearrange(hidden_states, "b t c -> b c t")
-    hidden_states = self.conv(hidden_states)
-    if self.remove_one_right:
-      hidden_states = hidden_states[:, :, :-1]
-
-    hidden_states = self.activation(hidden_states)
-    hidden_states = einops.rearrange(hidden_states, "b c t -> b t c")
-    return hidden_states
+from seisLM.model.foundation import position_embedding
 
 
 
@@ -85,12 +42,22 @@ class Wav2Vec2SdpaAttention(nn.Module):
       num_heads: int,
       dropout: float = 0.0,
       bias: bool = True,
+      rotary_pos_embed: bool = False,
+      max_seq_len: int = 3000,
   ):
     super().__init__()
     self.embed_dim = embed_dim
     self.num_heads = num_heads
     self.dropout = dropout
     self.head_dim = embed_dim // num_heads
+    self.rotary_pos_embed = rotary_pos_embed
+
+    if rotary_pos_embed:
+      self.freqs_cis = position_embedding.precompute_freqs_cis(
+          dim=self.head_dim,
+          end=max_seq_len * 2
+      )
+
 
     if (self.head_dim * num_heads) != self.embed_dim:
       raise ValueError(
@@ -120,10 +87,24 @@ class Wav2Vec2SdpaAttention(nn.Module):
     """Input shape: Batch x Time x Channel"""
     assert output_attentions is False, "output_attentions not supported"
     bsz, tgt_len, _ = hidden_states.size()
-    query_states = self.q_proj(hidden_states)
+    # dimension: [B, H, L, D]
+    query_states = self._shape(self.q_proj(hidden_states), -1, bsz)
     key_states = self._shape(self.k_proj(hidden_states), -1, bsz)
     value_states = self._shape(self.v_proj(hidden_states), -1, bsz)
-    query_states = self._shape(query_states, tgt_len, bsz)
+
+    if self.rotary_pos_embed:
+      self.freqs_cis = self.freqs_cis.to(hidden_states.device)
+      freqs_cis = self.freqs_cis[: tgt_len]
+
+      query_states, key_states = position_embedding.apply_rotary_emb(
+        query_states.transpose(1, 2),
+        key_states.transpose(1, 2),
+        freqs_cis=freqs_cis
+      )
+
+      # dimension: [B, H, L, D]
+      query_states = query_states.transpose(1, 2)
+      key_states = key_states.transpose(1, 2)
 
     # NOTE: SDPA with memory-efficient backend is currently (torch==2.1.2)
     # bugged when using non-contiguous inputs and a custom attn_mask,
@@ -164,12 +145,11 @@ class Wav2Vec2EncoderBase(nn.Module): # pylint: disable=abstract-method
   """
   def __init__(self, config: ml_collections.ConfigDict):
     super().__init__()
-    # self.attention = hf_wav2vec2.Wav2Vec2SdpaAttention(
     self.attention = Wav2Vec2SdpaAttention(
         embed_dim=config.hidden_size,
         num_heads=config.num_attention_heads,
         dropout=config.attention_dropout,
-        # is_decoder=False,
+        rotary_pos_embed=config.rotary_pos_embed,
     )
     LayerOrRMSNorm = RMSNorm if config.use_rms_norm else nn.LayerNorm
 
@@ -259,7 +239,10 @@ class Wav2Vec2EncoderStableLayerNorm(nn.Module):
   def __init__(self, config: ml_collections.ConfigDict):
     super().__init__()
     self.config = config
-    self.pos_conv_embed = Wav2Vec2PositionalConvEmbedding(config)
+
+    if config.conv_embed:
+      self.pos_conv_embed = position_embedding.Wav2Vec2PositionalConvEmbedding(
+        config)
 
     LayerOrRMSNorm = RMSNorm if config.use_rms_norm else nn.LayerNorm
 
@@ -299,8 +282,10 @@ class Wav2Vec2EncoderStableLayerNorm(nn.Module):
           attention_mask.shape[-1], attention_mask.shape[-1]
       )
 
-    position_embeddings = self.pos_conv_embed(hidden_states)
-    hidden_states = hidden_states + position_embeddings
+    if self.config.conv_embed:
+      position_embeddings = self.pos_conv_embed(hidden_states)
+      hidden_states = hidden_states + position_embeddings
+
     hidden_states = self.dropout(hidden_states)
 
     for layer in self.layers:
@@ -342,7 +327,8 @@ class Wav2Vec2Encoder(nn.Module):
   def __init__(self, config: ml_collections.ConfigDict):
     super().__init__()
     self.config = config
-    self.pos_conv_embed = Wav2Vec2PositionalConvEmbedding(config)
+    self.pos_conv_embed = position_embedding.Wav2Vec2PositionalConvEmbedding(
+      config)
 
     LayerOrRMSNorm = RMSNorm if config.use_rms_norm else nn.LayerNorm
 
