@@ -63,9 +63,7 @@ class Wav2Vec2LayerNormConvLayer(nn.Module):
         stride=config.conv_stride[layer_id],
         bias=config.conv_bias,
     )
-    self.layer_norm = LayerOrRMSNorm(
-      self.out_conv_dim, elementwise_affine=True
-    )
+    self.layer_norm = LayerOrRMSNorm(self.out_conv_dim)
     self.activation = nn.functional.gelu
 
   def forward(self, hidden_states: Tensor) -> Tensor:

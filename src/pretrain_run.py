@@ -1,8 +1,7 @@
 """Training of earthquake language model.
 
 python src/pretrain_run.py \
-  --model_config_path=/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/model_config_4xdownsample_scale_logits_quantization.json \
-  --training_config_path=/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/training_config.json \
+  --config_path=/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/pretrain_config.json \
   --test_run
 
 
@@ -24,12 +23,10 @@ from seisLM.data_pipeline import seisbench_dataloaders as dataloaders
 from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
-
 DEFAULT_NUM_WORKERS = 4
 def train_self_supervised(
   *,
-  model_config: ml_collections.ConfigDict,
-  training_config: ml_collections.ConfigDict,
+  config: ml_collections.ConfigDict,
   project_name: str
   ) -> None:
   """
@@ -39,34 +36,34 @@ def train_self_supervised(
     test_run: str
   """
 
-  seed_everything(training_config.seed)
-  model = LitMultiDimWav2Vec2(model_config, training_config)
+  seed_everything(config.seed)
+  model = LitMultiDimWav2Vec2(config)
 
 
   data_collator = \
     collator.DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding(
-        config=model_config,
-        mask_time_prob=training_config.mask_time_prob,
-        mask_time_length=training_config.mask_time_length,
+        config=config.model_config,
+        mask_time_prob=config.training_config.mask_time_prob,
+        mask_time_length=config.training_config.mask_time_length,
     )
 
 
-  training_config.num_workers = int(
+  config.data_config.num_workers = int(
     os.environ.get('SLURM_CPUS_PER_TASK', DEFAULT_NUM_WORKERS))
 
   train_loader, dev_loader = dataloaders.prepare_seisbench_dataloaders(
     model=model,
-    training_fraction=training_config.training_fraction,
-    data_names=training_config.data_name,
-    batch_size=training_config.local_batch_size,
-    num_workers=training_config.num_workers,
-    prefetch_factor=training_config.prefetch_factor,
+    training_fraction=config.data_config.training_fraction,
+    data_names=config.data_config.data_name,
+    batch_size=config.data_config.local_batch_size,
+    num_workers=config.data_config.num_workers,
+    prefetch_factor=config.data_config.prefetch_factor,
     collator=data_collator,
-    cache=training_config.cache_dataset,
+    cache=config.data_config.cache_dataset,
   )
 
-  training_config.max_train_steps = training_config.num_train_epochs * len(
-    train_loader
+  config.training_config.max_train_steps = (
+    config.training_config.max_epochs * len(train_loader)
   )
 
   checkpoint_callback = ModelCheckpoint(
@@ -87,8 +84,8 @@ def train_self_supervised(
   logger = WandbLogger(
       project=project_name,
       save_dir=project_path.MODEL_SAVE_DIR,
-      name=f"{training_config.seed}__{formatted_time}",
-      id=f"{training_config.seed}__{formatted_time}",
+      name=f"{config.seed}__{formatted_time}",
+      id=f"{config.seed}__{formatted_time}",
       save_code=True,
   )
 
@@ -97,20 +94,21 @@ def train_self_supervised(
   if slurm_job_id:
     logger.log_hyperparams({"slurm_job_id": slurm_job_id})
 
-  logger.log_hyperparams(model.hparams)
-  logger.log_hyperparams(training_config.to_dict())
+  # logger.log_hyperparams(model.hparams)
+  # logger.log_hyperparams(config.to_dict())
+
 
   trainer = L.Trainer(
       profiler='simple',
       logger=logger,
-      log_every_n_steps=training_config.log_every_n_steps,
-      devices=training_config.devices,
+      log_every_n_steps=config.training_config.log_every_n_steps,
+      devices=config.training_config.devices,
       accelerator='gpu',
       strategy='ddp',
-      max_epochs=training_config.num_train_epochs,
+      max_epochs=config.training_config.max_epochs,
       callbacks=callbacks,
       default_root_dir=project_path.MODEL_SAVE_DIR,
-      precision=training_config.precision,
+      precision=config.training_config.precision,
   )
 
   # Start training
@@ -134,8 +132,7 @@ if __name__ == '__main__':
   # torch.set_float32_matmul_precision('high')
 
   parser = argparse.ArgumentParser()
-  parser.add_argument("--model_config_path", type=str, required=True)
-  parser.add_argument("--training_config_path", type=str, required=True)
+  parser.add_argument("--config_path", type=str, required=True)
   # Add the boolean argument with a default value of False
   parser.add_argument(
       "--test_run", action="store_true",
@@ -143,29 +140,23 @@ if __name__ == '__main__':
   )
   args = parser.parse_args()
 
-  with open(args.model_config_path, "r", encoding="utf-8") as f:
-    model_config = json.load(f)
-  model_config = ml_collections.ConfigDict(model_config)
-
-
-  with open(args.training_config_path, "r", encoding="utf-8") as f:
-    training_config = json.load(f)
-  training_config = ml_collections.ConfigDict(training_config)
+  with open(args.config_path, "r", encoding="utf-8") as f:
+    config = json.load(f)
+  config = ml_collections.ConfigDict(config)
 
   if args.test_run:
-    # if test_run is True, train on ETHZ for only 1 epoch.
+    # if test_run is True, train on ETHZ for only 1 epoch w/ a small batchsize.
     print("Running in test mode")
-    training_config.num_train_epochs = 1
-    training_config.data_name = ['ETHZ']
-    training_config.local_batch_size = 8
+    config.training_config.max_epochs = 1
+    config.data_config.data_name = ['ETHZ']
+    config.data_config.local_batch_size = 8
     project_name = "test_pretrained_seisLM"
   else:
     project_name = "pretrained_seisLM"
 
   try:
     train_self_supervised(
-      model_config=model_config,
-      training_config=training_config,
+      config=config,
       project_name=project_name
     )
 

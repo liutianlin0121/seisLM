@@ -1,23 +1,28 @@
 """Wav2Vec2 model."""
+from typing import Dict, List, Any
 import math
 import numpy as np
 import torch
 from torch.optim.lr_scheduler import LambdaLR
 import lightning as L
+import ml_collections
 import seisbench.generate as sbg
 from seisLM.model.foundation.multidim_wav2vec2 import MultiDimWav2Vec2ForPreTraining
 from seisLM.utils.data_utils import phase_dict
 
 class LitMultiDimWav2Vec2(L.LightningModule):
   """LightningModule for Wav2Vec2 model."""
-  def __init__(self, model_config, training_config):
+  def __init__(
+    self,
+    config: ml_collections.ConfigDict,
+    ) -> None:
+
     super().__init__()
-    self.training_config = training_config
-    self.model_config = model_config
-    self.model = MultiDimWav2Vec2ForPreTraining(model_config)
+    self.config = config
+    self.model = MultiDimWav2Vec2ForPreTraining(config.model_config)
     self.save_hyperparameters()
 
-  def training_step(self, batch, batch_idx):
+  def training_step(self, batch: Dict, batch_idx: int) -> torch.Tensor:
     # pylint:disable=missing-function-docstring
     # pylint:disable=invalid-name
 
@@ -30,17 +35,17 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     loss = outputs.loss / num_losses
 
     temperature_max_min_gap = (
-        self.training_config.max_gumbel_temperature -\
-          self.training_config.min_gumbel_temperature
+        self.config.training_config.max_gumbel_temperature -\
+          self.config.training_config.min_gumbel_temperature
           )
 
     ratio_completed_steps = self.trainer.global_step / (
-        self.training_config.max_train_steps // self.trainer.num_devices
+        self.config.training_config.max_train_steps // self.trainer.num_devices
     )
     temperature_factor = (1 + math.cos(math.pi * ratio_completed_steps))/2
 
     gumbel_temperature = \
-        self.training_config.min_gumbel_temperature + (
+        self.config.training_config.min_gumbel_temperature + (
           temperature_factor * temperature_max_min_gap
         )
 
@@ -64,7 +69,7 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     return loss
 
 
-  def validation_step(self, batch, batch_idx):
+  def validation_step(self, batch: Dict, batch_idx: int) -> Dict:
     # pylint:disable=missing-function-docstring
     # pylint:disable=invalid-name
     outputs = self.model(**batch)
@@ -82,7 +87,7 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     )
     return validation_outputs
 
-  def on_validation_epoch_end(self):
+  def on_validation_epoch_end(self) -> None:
     # pylint:disable=missing-function-docstring
     # pylint:disable=invalid-name
 
@@ -101,26 +106,27 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     avg_metrics.pop('val/num_losses')
     self.log_dict(avg_metrics, prog_bar=True, sync_dist=True)
 
-  def configure_optimizers(self, interval='step'):
+  def configure_optimizers(self): # type: ignore
     optimizer = torch.optim.AdamW(
         params=self.model.parameters(),
-        lr=self.training_config.learning_rate,
-        weight_decay=self.training_config.weight_decay,
+        lr=self.config.training_config.learning_rate,
+        weight_decay=self.config.training_config.weight_decay,
         betas=(
-          self.training_config.adam_beta1, self.training_config.adam_beta2
+          self.config.training_config.adam_beta1,
+          self.config.training_config.adam_beta2
         ),
-        eps=self.training_config.adam_epsilon,
+        eps=self.config.training_config.adam_epsilon,
     )
 
     t_max = int(
-      self.training_config.max_train_steps // self.trainer.num_devices
+      self.config.training_config.max_train_steps // self.trainer.num_devices
     )
-    t_warmup = int((self.training_config.warmup_frac_step * (
-      self.training_config.max_train_steps)) // self.trainer.num_devices
+    t_warmup = int((self.config.training_config.warmup_frac_step * (
+      self.config.training_config.max_train_steps)) // self.trainer.num_devices
     )
 
     # Linear warmup and half-cycle cosine decay
-    def lr_lambda(step):
+    def lr_lambda(step: int) -> Any:
       if step < t_warmup:
         # Linear warm-up
         return step / t_warmup
@@ -137,7 +143,7 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     }
     return {"optimizer": optimizer, "lr_scheduler": sched_config}
 
-  def get_train_augmentations(self):
+  def get_train_augmentations(self) -> List:
     return [
         # Select windows around picks to reduce the amount of noise traces in
         # training.
@@ -158,5 +164,5 @@ class LitMultiDimWav2Vec2(L.LightningModule):
         sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
     ]
 
-  def get_val_augmentations(self):
+  def get_val_augmentations(self) -> List:
     return self.get_train_augmentations()

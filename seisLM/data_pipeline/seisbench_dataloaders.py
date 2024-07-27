@@ -1,4 +1,5 @@
 """ Dataloaders for SeisBench datasets. """
+from typing import List, Optional, Any, Tuple
 import logging
 import numpy as np
 import seisbench.generate as sbg
@@ -6,6 +7,9 @@ import seisbench.data as sbd
 from torch.utils.data import DataLoader
 from seisbench.util import worker_seeding
 from seisbench.data import MultiWaveformDataset
+from seisbench.data.base import BenchmarkDataset
+
+import lightning as L
 
 data_aliases = {
     "ethz": "ETHZ",
@@ -19,7 +23,7 @@ data_aliases = {
 }
 
 
-def get_dataset_by_name(name: str):
+def get_dataset_by_name(name: str) -> BenchmarkDataset:
   """
   Resolve dataset name to class from seisbench.data.
 
@@ -35,7 +39,10 @@ def get_dataset_by_name(name: str):
     raise ValueError(f"Unknown dataset '{name}'.") from e
 
 
-def apply_training_fraction(training_fraction, train_data):
+def apply_training_fraction(
+  training_fraction: float,
+  train_data: BenchmarkDataset,
+  ) -> None:
   """
   Reduces the size of train_data to train_fraction by inplace filtering.
   Filter blockwise for efficient memory savings.
@@ -62,18 +69,21 @@ def apply_training_fraction(training_fraction, train_data):
 
 
 def prepare_seisbench_dataloaders(
-  model, data_names, batch_size, num_workers,
-  training_fraction=1.0,
-  sampling_rate=100,
-  component_order="ZNE", dimension_order="NCW",
-  collator=None, cache=None, prefetch_factor=2,
-  ):
+  *,
+  model: L.LightningModule,
+  data_names: List,
+  batch_size: int,
+  num_workers: int,
+  training_fraction: float = 1.0,
+  sampling_rate: int = 100,
+  component_order: str = "ZNE",
+  dimension_order: str = "NCW",
+  collator: Optional[Any] = None,
+  cache: Optional[str] = None,
+  prefetch_factor: int = 2,
+  ) -> Tuple[DataLoader, DataLoader]:
   """
-  TODO: Write docstring
   Returns the training and validation data loaders
-  :param config:
-  :param model:
-  :return:
   """
   if isinstance(data_names, str):
     data_names = [data_names]
