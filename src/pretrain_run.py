@@ -94,10 +94,6 @@ def train_self_supervised(
   if slurm_job_id:
     logger.log_hyperparams({"slurm_job_id": slurm_job_id})
 
-  # logger.log_hyperparams(model.hparams)
-  # logger.log_hyperparams(config.to_dict())
-
-
   trainer = L.Trainer(
       profiler='simple',
       logger=logger,
@@ -105,6 +101,7 @@ def train_self_supervised(
       devices=config.training_config.devices,
       accelerator='gpu',
       strategy='ddp',
+      detect_anomaly=config.training_config.detect_anomaly,
       max_epochs=config.training_config.max_epochs,
       callbacks=callbacks,
       default_root_dir=project_path.MODEL_SAVE_DIR,
@@ -124,12 +121,8 @@ if __name__ == '__main__':
   torch.backends.cuda.enable_flash_sdp(True)
   # Set cuDNN backend flags
   torch.backends.cudnn.benchmark = True
-  torch.backends.cudnn.deterministic = False #True
+  torch.backends.cudnn.deterministic = False
   torch.set_float32_matmul_precision('high')
-
-  # torch.backends.cudnn.benchmark = True
-  # torch.backends.cudnn.deterministic = True
-  # torch.set_float32_matmul_precision('high')
 
   parser = argparse.ArgumentParser()
   parser.add_argument("--config_path", type=str, required=True)
@@ -145,13 +138,14 @@ if __name__ == '__main__':
   config = ml_collections.ConfigDict(config)
 
   if args.test_run:
-    # if test_run is True, train on ETHZ for only 1 epoch w/ a small batchsize.
+    # if test_run is True, train for only 1 epoch w/ a small batchsize.
     print("Running in test mode")
-    config.training_config.max_epochs = 5
-    config.data_config.data_name = ['ETHZ']
+    config.training_config.max_epochs = 1
     config.data_config.local_batch_size = 8
+    config.training_config.detect_anomaly = True
     project_name = "test_pretrained_seisLM"
   else:
+    config.training_config.detect_anomaly = False
     project_name = "pretrained_seisLM"
 
   try:

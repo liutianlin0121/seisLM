@@ -43,7 +43,7 @@ conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench
 
 # no sinkhorn with scaled logits in quantization
 srun python3 pretrain_run.py \\
-  --config_path ${CONFIG_DIR}/${JOB_NAME}/pretrain_config_rmsnorm_std_nomean_reduce_codevectors_rope.json \\
+  --config_path ${CONFIG_DIR}/${JOB_NAME}/pretrain_config_layernorm_peak_mean_reduce_codevectors_rope.json \\
 EOT
 
 if [ "$TEST_RUN" = true ]; then
