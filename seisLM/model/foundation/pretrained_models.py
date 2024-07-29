@@ -3,8 +3,10 @@ from typing import Dict, List, Any
 import math
 import numpy as np
 import torch
+from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
 import lightning as L
+from lightning.pytorch.utilities import grad_norm
 import ml_collections
 import seisbench.generate as sbg
 from seisLM.model.foundation.multidim_wav2vec2 import MultiDimWav2Vec2ForPreTraining
@@ -21,6 +23,10 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     self.config = config
     self.model = MultiDimWav2Vec2ForPreTraining(config.model_config)
     self.save_hyperparameters()
+
+  def on_before_optimizer_step(self, optimizer: Optimizer) -> None:
+    # inspect (unscaled) gradients here
+    self.log_dict(grad_norm(self, norm_type=2))
 
   def training_step(self, batch: Dict, batch_idx: int) -> torch.Tensor:
     # pylint:disable=missing-function-docstring
@@ -165,6 +171,7 @@ class LitMultiDimWav2Vec2(L.LightningModule):
           demean_axis= -1 if self.config.data_config.demean else None,
           amp_norm_axis= -1 if self.config.data_config.amp_norm else None,
           amp_norm_type=self.config.data_config.amp_norm_type,
+          eps=self.config.data_config.get('norm_eps', 1e-10),
         ),
     ]
 

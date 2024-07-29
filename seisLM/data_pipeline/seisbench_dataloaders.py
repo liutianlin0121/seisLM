@@ -1,5 +1,5 @@
 """ Dataloaders for SeisBench datasets. """
-from typing import List, Optional, Any, Tuple
+from typing import List, Optional, Any, Tuple, Union
 import logging
 import numpy as np
 import seisbench.generate as sbg
@@ -81,7 +81,9 @@ def prepare_seisbench_dataloaders(
   collator: Optional[Any] = None,
   cache: Optional[str] = None,
   prefetch_factor: int = 2,
-  ) -> Tuple[DataLoader, DataLoader]:
+  return_datasets: bool = False,
+  ) -> Union[
+    Tuple[DataLoader, DataLoader], Tuple[BenchmarkDataset, BenchmarkDataset]]:
   """
   Returns the training and validation data loaders
   """
@@ -148,4 +150,7 @@ def prepare_seisbench_dataloaders(
       prefetch_factor=prefetch_factor,
   )
 
-  return train_loader, dev_loader
+  if return_datasets:
+    return train_data, dev_data
+  else:
+    return train_loader, dev_loader
