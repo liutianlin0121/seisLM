@@ -75,9 +75,7 @@
       "ETHZ",
       "GEOFON",
       "STEAD",
-      "NEIC",
-      "InstanceCounts",
-      "Iquique"
+      "InstanceCounts"
     ],
     "local_batch_size": 28,
     "training_fraction": 1.0,
