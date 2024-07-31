@@ -61,23 +61,22 @@
     "devices": 4,
     "max_epochs": 40,
     "precision": "16-mixed",
-    "learning_rate": 0.0005,
+    "learning_rate": 1e-3,
     "log_every_n_steps": 100,
     "mask_time_length": 10,
     "mask_time_prob": 0.65,
     "max_gumbel_temperature": 2.0,
     "min_gumbel_temperature": 0.5,
     "warmup_frac_step": 0.2,
-    "weight_decay": 0.0
+    "weight_decay": 0.01
   },
   "data_config": {
     "data_name": [
       "ETHZ",
-      "GEOFON",
       "STEAD",
       "InstanceCounts"
     ],
-    "local_batch_size": 28,
+    "local_batch_size": 96,
     "training_fraction": 1.0,
     "cache_dataset": null,
     "prefetch_factor": 2,
