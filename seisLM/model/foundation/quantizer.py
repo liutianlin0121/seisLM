@@ -18,7 +18,6 @@ from typing import Optional, Tuple
 import einops
 import ml_collections
 import torch
-from jaxtyping import Float, Bool
 from torch import nn
 from torch.nn.functional import gumbel_softmax
 
@@ -61,9 +60,9 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
 
   @staticmethod
   def _compute_perplexity(
-    probs: Float[torch.Tensor, "N G V"],
-    mask: Optional[Bool[torch.Tensor, "B L"]]
-    ) -> Float[torch.Tensor, ""]:
+    probs: torch.Tensor,
+    mask: Optional[torch.Tensor]
+    ) -> torch.Tensor:
     '''Compute perplexity of the code selection distribution.
 
     Args:
@@ -103,9 +102,9 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
 
   def forward(
     self,
-    hidden_states: Float[torch.Tensor, "B L D"],
-    mask_time_indices: Optional[Bool[torch.Tensor, "B L"]]
-    ) -> Tuple[Float[torch.Tensor, "B L C"], Float[torch.Tensor, ""]]:
+    hidden_states: torch.Tensor,
+    mask_time_indices: Optional[torch.Tensor]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
     '''Forward pass.
 
     Args:
@@ -210,4 +209,3 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
     )
 
     return codevectors, perplexity
-
