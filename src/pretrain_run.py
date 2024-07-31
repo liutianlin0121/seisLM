@@ -69,6 +69,7 @@ def train_self_supervised(
   checkpoint_callback = ModelCheckpoint(
       monitor='val/loss',
       save_top_k=1,
+      save_last=True,
       mode='min',
       filename="{epoch}-{step}",
   )
