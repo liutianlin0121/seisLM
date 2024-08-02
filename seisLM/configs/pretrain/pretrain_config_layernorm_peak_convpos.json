@@ -70,7 +70,7 @@
     "max_gumbel_temperature": 2.0,
     "min_gumbel_temperature": 0.5,
     "warmup_frac_step": 0.2,
-    "weight_decay": 0.0
+    "weight_decay": 0.01
   },
   "data_config": {
     "data_name": [
