@@ -52,8 +52,15 @@ def train_foreshock_aftershock(
 
   config.trainer_args.max_train_steps = max_train_steps
 
-  model = foreshock_aftershock_models.ShockClassifierLit(
-      model_name=config.model_name,
+
+  if config.model_name == 'Wav2Vec2ForSequenceClassification':
+    LitModel = foreshock_aftershock_models.Wav2vec2ShockClassifierLit
+  elif config.model_name == 'Conv1DShockClassifier':
+    LitModel = foreshock_aftershock_models.Conv1DShockClassifierLit
+  else:
+    raise ValueError(f"Model {config.model_name} not supported")
+
+  model = LitModel(
       model_config=config.model_args,
       training_config=config.trainer_args,
   )
@@ -157,8 +164,8 @@ if __name__ == "__main__":
   task_name = os.path.basename(__file__)[: -len(".py")]
 
   try:
-    for num_classes in [4, 9, 8, 2]:
-    # for num_classes in [4]:
+    # for num_classes in [4, 9, 8, 2]:
+    for num_classes in [4]:
       config.model_args.num_classes = num_classes
       train_foreshock_aftershock(config, task_name, args.save_checkpoints)
 

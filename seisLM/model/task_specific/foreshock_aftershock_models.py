@@ -12,12 +12,14 @@ from lightning.pytorch.utilities import grad_norm
 from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
+from einops.layers.torch import Reduce, Rearrange
+
+from seisLM.model.foundation import initialization
 
 from seisLM.model.foundation import pretrained_models
 from seisLM.model.task_specific.shared_task_specific import (
   BaseMultiDimWav2Vec2ForDownstreamTasks)
 
-from einops.layers.torch import Reduce, Rearrange
 
 
 class DoubleConvBlock(nn.Module):
@@ -94,23 +96,33 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
   def __init__(self, config: ml_collections.ConfigDict):
     super().__init__(config)
 
-    self.conv_head = nn.Sequential(
+    self.head = nn.Sequential(
       Rearrange('b l c -> b c l'),
-      DoubleConvBlock(
-        in_channels=config.hidden_size,
-        out_channels=config.hidden_size,
-        kernel_size=3,
-        dropout_rate=0.2
-      ),
-      DoubleConvBlock(
-        in_channels=config.hidden_size,
-        out_channels=config.classifier_proj_size,
-        kernel_size=3,
-        dropout_rate=0.2
-      ),
       Reduce('b c l -> b c', reduction='mean'),
+      nn.Linear(config.hidden_size, config.classifier_proj_size, bias=False),
+      torch.nn.BatchNorm1d(config.classifier_proj_size),
+      nn.Tanh(),
+      nn.Dropout(config.dropout_rate),
       nn.Linear(config.classifier_proj_size, config.num_classes)
     )
+
+    # self.apply(
+    #   lambda module: initialization.init_wav2vec2_weights(
+    #     config=config, module=module)
+    # )
+    # conv_config = ml_collections.ConfigDict({
+    #   'in_channels': 3, #config.hidden_size,
+    #   'num_classes': config.num_classes,
+    #   'num_layers': 3,
+    #   'initial_filters': 32,
+    #   'kernel_size': 3,
+    #   'dropout_rate': config.dropout_rate,
+    # })
+    # self.head = nn.Sequential(
+    #   # Rearrange('b l c -> b c l'),
+    #   Conv1DShockClassifier(conv_config)
+    # )
+
 
   def forward(self, input_values: torch.Tensor,) -> Tensor:
     """The forward pass of the sequence classification model.
@@ -122,55 +134,26 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
       logits: The classification logits.
     """
     hidden_states = self.get_wav2vec2_hidden_states(input_values)
-    logits = self.conv_head(hidden_states)
+    logits = self.head(hidden_states)
+    # input_values = input_values + hidden_states.mean(axis=[0, 1, 2]) * 0.0
+    # logits = self.head(input_values)
     return logits
 
 
 
-class ShockClassifierLit(L.LightningModule):
+class BaseShockClassifierLit(L.LightningModule):
   """ A LightningModule for the Conv1DShockClassifier model. """
   def __init__(
     self,
-    model_name: str,
     model_config: ml_collections.ConfigDict,
     training_config: ml_collections.ConfigDict
     ):
     super().__init__()
     self.save_hyperparameters()
-    self.training_config = training_config
-
-    if model_name == "Conv1DShockClassifier":
-      self.model = Conv1DShockClassifier(model_config)
-    elif model_name == "Wav2Vec2ForSequenceClassification":
-      pretrained_model = pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
-          model_config.pretrained_ckpt_path
-      ).model
-
-      ## TODO: temp fix for the config issue
-      new_config = pretrained_model.config
-      for key, value in model_config.items():
-        setattr(new_config, key, value)
-
-      # for key, value in new_config.to_dict().items():
-      #   if 'dropout' in key:
-      #     new_value = 0.1
-      #     print(f'Orig. {key} value: {value}. New value: {new_value}')
-      #     setattr(new_config, key, new_value)
-
-      model_config = new_config
-      # model_config = config_utils.ConfigTracker(model_config)
-      self.model = Wav2Vec2ForSequenceClassification(model_config)
-
-      self.model.wav2vec2.load_state_dict(
-          pretrained_model.wav2vec2.state_dict()
-      )
-      self.model.freeze_feature_encoder()
-      # self.model.freeze_base_model()
-      del pretrained_model
-    else:
-      raise ValueError(f"Model {model_name} not recognized.")
-
     self.model_config = model_config
+    self.training_config = training_config
+    self.model = nn.Identity() # dummy model
+
     self.train_acc = torchmetrics.Accuracy(
       task="multiclass", num_classes=model_config.num_classes
     )
@@ -223,14 +206,36 @@ class ShockClassifierLit(L.LightningModule):
     self.log("test/loss", loss, sync_dist=True, prog_bar=True)
     self.log("test/acc", self.test_acc, sync_dist=True, prog_bar=True)
 
+
+class Conv1DShockClassifierLit(BaseShockClassifierLit):
+  """ A LightningModule for the Conv1DShockClassifier model. """
+  def __init__(
+    self,
+    model_config: ml_collections.ConfigDict,
+    training_config: ml_collections.ConfigDict
+    ):
+    super().__init__(model_config, training_config)
+    self.save_hyperparameters()
+    self.training_config = training_config
+
+    self.model = Conv1DShockClassifier(model_config)
+
   def configure_optimizers(self): # type: ignore
 
-    optimizer = torch.optim.AdamW(
-        filter(lambda p: p.requires_grad, self.parameters()),
-        lr=self.model_config.learning_rate,
-        weight_decay=self.model_config.weight_decay,
-    )
-
+    if self.training_config.optimizer == "adamw":
+      optimizer = torch.optim.AdamW(
+          filter(lambda p: p.requires_grad, self.parameters()),
+          **self.training_config.optimizer_args
+      )
+    elif self.training_config.optimizer == "sgd":
+      optimizer = torch.optim.SGD(
+          filter(lambda p: p.requires_grad, self.parameters()),
+          **self.training_config.optimizer_args
+      )
+    else:
+      raise ValueError(
+          f"Optimizer {self.training_config.optimizer} not recognized."
+      )
     t_max = int(
       self.training_config.max_train_steps // self.trainer.num_devices
     )
@@ -255,3 +260,220 @@ class ShockClassifierLit(L.LightningModule):
         'frequency': 1,
     }
     return {"optimizer": optimizer, "lr_scheduler": sched_config}
+
+
+
+class Wav2vec2ShockClassifierLit(BaseShockClassifierLit):
+  """ Wav2vec2 model for shock classification. """
+  def __init__(
+    self,
+    model_config: ml_collections.ConfigDict,
+    training_config: ml_collections.ConfigDict
+    ):
+    super().__init__(model_config, training_config)
+    self.save_hyperparameters()
+    self.training_config = training_config
+
+    pretrained_model = pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
+        model_config.pretrained_ckpt_path
+    ).model
+
+    ## TODO: temp fix for the config issue
+    new_config = pretrained_model.config
+    for key, value in model_config.items():
+      setattr(new_config, key, value)
+
+    # for key, value in new_config.to_dict().items():
+    #   if ('dropout' in key) and ('attention' not in key) and ('quantizer' not in key):
+    #     new_value = model_config.dropout_rate
+    #     print(f'Orig. {key} value: {value}. New value: {new_value}')
+    #     setattr(new_config, key, new_value)
+
+    model_config = new_config
+    self.model = Wav2Vec2ForSequenceClassification(model_config)
+
+    self.model.wav2vec2.load_state_dict(
+        pretrained_model.wav2vec2.state_dict()
+    )
+    self.model.freeze_feature_encoder()
+    # self.model.freeze_base_model()
+    del pretrained_model
+    self.model_config = model_config
+
+  def configure_optimizers(self): # type: ignore
+
+    if self.training_config.optimizer == "adamw":
+      optimizer = torch.optim.AdamW(
+          filter(lambda p: p.requires_grad, self.parameters()),
+          **self.training_config.optimizer_args
+      )
+    elif self.training_config.optimizer == "sgd":
+      optimizer = torch.optim.SGD(
+          filter(lambda p: p.requires_grad, self.parameters()),
+          **self.training_config.optimizer_args
+      )
+    else:
+      raise ValueError(
+          f"Optimizer {self.training_config.optimizer} not recognized."
+      )
+    t_max = int(
+      self.training_config.max_train_steps // self.trainer.num_devices
+    )
+    t_warmup = int((self.training_config.warmup_frac_step * (
+      self.training_config.max_train_steps)) // self.trainer.num_devices
+    )
+
+    # Linear warmup and half-cycle cosine decay
+    def lr_lambda(step: int): # type: ignore
+      if step < t_warmup:
+        # Linear warm-up
+        return step / t_warmup
+      else:
+        # Cosine annealing over remaining steps
+        return 0.5 * (
+          1 + np.cos((step - t_warmup) * math.pi / (t_max - t_warmup))
+        )
+
+    sched_config = {
+        'scheduler': LambdaLR(optimizer, lr_lambda),
+        'interval': "step",
+        'frequency': 1,
+    }
+    return {"optimizer": optimizer, "lr_scheduler": sched_config}
+
+
+# class ShockClassifierLit(L.LightningModule):
+#   """ A LightningModule for the Conv1DShockClassifier model. """
+#   def __init__(
+#     self,
+#     model_name: str,
+#     model_config: ml_collections.ConfigDict,
+#     training_config: ml_collections.ConfigDict
+#     ):
+#     super().__init__()
+#     self.save_hyperparameters()
+#     self.training_config = training_config
+
+#     if model_name == "Conv1DShockClassifier":
+#       self.model = Conv1DShockClassifier(model_config)
+#     elif model_name == "Wav2Vec2ForSequenceClassification":
+#       pretrained_model = pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
+#           model_config.pretrained_ckpt_path
+#       ).model
+
+#       ## TODO: temp fix for the config issue
+#       new_config = pretrained_model.config
+#       for key, value in model_config.items():
+#         setattr(new_config, key, value)
+
+#       # for key, value in new_config.to_dict().items():
+#       #   if ('dropout' in key) and ('attention' not in key) and ('quantizer' not in key):
+#       #     new_value = model_config.dropout_rate
+#       #     print(f'Orig. {key} value: {value}. New value: {new_value}')
+#       #     setattr(new_config, key, new_value)
+
+#       model_config = new_config
+#       self.model = Wav2Vec2ForSequenceClassification(model_config)
+
+#       self.model.wav2vec2.load_state_dict(
+#           pretrained_model.wav2vec2.state_dict()
+#       )
+#       self.model.freeze_feature_encoder()
+#       # self.model.freeze_base_model()
+#       del pretrained_model
+#     else:
+#       raise ValueError(f"Model {model_name} not recognized.")
+
+#     self.model_config = model_config
+#     self.train_acc = torchmetrics.Accuracy(
+#       task="multiclass", num_classes=model_config.num_classes
+#     )
+#     self.val_acc = torchmetrics.Accuracy(
+#       task="multiclass", num_classes=model_config.num_classes
+#     )
+#     self.test_acc = torchmetrics.Accuracy(
+#       task="multiclass", num_classes=model_config.num_classes
+#     )
+
+#   def forward(self, waveforms: Tensor) -> Tensor:
+#     logits = self.model(waveforms)
+#     return logits
+
+
+#   def on_before_optimizer_step(self, optimizer: Optimizer) -> None:
+#     # inspect (unscaled) gradients here
+#     self.log_dict(grad_norm(self, norm_type=2))
+
+#   def training_step(self, batch: Tuple, batch_idx: int) -> Tensor:
+#     waveforms, labels = batch
+#     logits = self(waveforms)
+#     loss = torch.nn.functional.cross_entropy(logits, labels)
+#     predicted_labels = torch.argmax(logits, 1)
+#     self.train_acc(predicted_labels, labels)
+
+#     self.log("train/loss", loss, sync_dist=True, prog_bar=True, on_step=True)
+#     self.log("train/acc", self.train_acc, sync_dist=True, prog_bar=True)
+
+#     return loss  # this is passed to the optimizer for training
+
+#   def validation_step(self, batch: Tuple, batch_idx: int) -> None:
+
+#     waveforms, labels = batch
+
+#     logits = self(waveforms)
+#     loss = torch.nn.functional.cross_entropy(logits, labels)
+#     predicted_labels = torch.argmax(logits, 1)
+#     self.val_acc(predicted_labels, labels)
+#     self.log("val/loss", loss, sync_dist=True, prog_bar=True)
+#     self.log("val/acc", self.val_acc, sync_dist=True, prog_bar=True)
+
+
+#   def test_step(self, batch: Tuple, batch_idx: int) -> None:
+#     waveforms, labels = batch
+#     logits = self(waveforms)
+#     loss = torch.nn.functional.cross_entropy(logits, labels)
+#     predicted_labels = torch.argmax(logits, 1)
+#     self.test_acc(predicted_labels, labels)
+#     self.log("test/loss", loss, sync_dist=True, prog_bar=True)
+#     self.log("test/acc", self.test_acc, sync_dist=True, prog_bar=True)
+
+#   def configure_optimizers(self): # type: ignore
+
+#     if self.training_config.optimizer == "adamw":
+#       optimizer = torch.optim.AdamW(
+#           filter(lambda p: p.requires_grad, self.parameters()),
+#           **self.training_config.optimizer_args
+#       )
+#     elif self.training_config.optimizer == "sgd":
+#       optimizer = torch.optim.SGD(
+#           filter(lambda p: p.requires_grad, self.parameters()),
+#           **self.training_config.optimizer_args
+#       )
+#     else:
+#       raise ValueError(
+#           f"Optimizer {self.training_config.optimizer} not recognized."
+#       )
+#     t_max = int(
+#       self.training_config.max_train_steps // self.trainer.num_devices
+#     )
+#     t_warmup = int((self.training_config.warmup_frac_step * (
+#       self.training_config.max_train_steps)) // self.trainer.num_devices
+#     )
+
+#     # Linear warmup and half-cycle cosine decay
+#     def lr_lambda(step: int): # type: ignore
+#       if step < t_warmup:
+#         # Linear warm-up
+#         return step / t_warmup
+#       else:
+#         # Cosine annealing over remaining steps
+#         return 0.5 * (
+#           1 + np.cos((step - t_warmup) * math.pi / (t_max - t_warmup))
+#         )
+
+#     sched_config = {
+#         'scheduler': LambdaLR(optimizer, lr_lambda),
+#         'interval': "step",
+#         'frequency': 1,
+#     }
+#     return {"optimizer": optimizer, "lr_scheduler": sched_config}

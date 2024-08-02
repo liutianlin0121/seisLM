@@ -2,7 +2,7 @@
   "model_name": "Conv1DShockClassifier",
   "data_args": {
     "num_workers": 8,
-    "batch_size": 64,
+    "batch_size": 16,
     "event_split_method": "temporal",
     "component_order": "ZNE",
     "seed": 42,
@@ -11,14 +11,21 @@
     "test_frac": 0.20,
     "dimension_order": "NCW",
     "demean": false,
-    "devide_by_std": true
+    "amp_norm": true,
+    "amp_norm_type": "std"
   },
   "trainer_args": {
     "devices": 2,
     "strategy": "ddp",
     "accelerator": "gpu",
     "max_epochs": 100,
-    "warmup_frac_step": 0.0
+    "warmup_frac_step": 0.0,
+    "optimizer": "adamw",
+    "optimizer_args":
+      {
+        "lr": 1e-3,
+        "weight_decay": 0.1
+      }
   },
   "model_args": {
     "in_channels": 3,
@@ -26,8 +33,6 @@
     "num_layers": 3,
     "initial_filters": 32,
     "kernel_size": 3,
-    "learning_rate": 1e-3,
-    "weight_decay": 0.1,
     "dropout_rate": 0.2
   }
 }

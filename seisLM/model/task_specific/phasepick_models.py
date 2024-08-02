@@ -25,6 +25,7 @@ from torch import Tensor
 import torch.nn as nn
 from transformers.modeling_outputs import TokenClassifierOutput
 
+from seisLM.model.foundation import initialization
 from seisLM.model.foundation import pretrained_models
 from seisLM.model.task_specific.shared_task_specific import (
   BaseMultiDimWav2Vec2ForDownstreamTasks)
@@ -231,6 +232,10 @@ class MultiDimWav2Vec2ForFrameClassification(
       config.num_labels
     )
     self.num_labels = config.num_labels
+    self.apply(
+      lambda module: initialization.init_wav2vec2_weights(
+        config=config, module=module)
+    )
 
   def forward(
       self,

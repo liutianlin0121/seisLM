@@ -7,7 +7,6 @@ from torch import nn
 import ml_collections
 from lightning.pytorch.callbacks import BaseFinetuning
 from lightning.pytorch import LightningModule
-from seisLM.model.foundation import initialization
 from seisLM.model.foundation.multidim_wav2vec2 import Wav2Vec2Model
 
 
@@ -49,10 +48,6 @@ class BaseMultiDimWav2Vec2ForDownstreamTasks(nn.Module, abc.ABC):
     if config.use_weighted_layer_sum:
       self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
 
-    self.apply(
-      lambda module: initialization.init_wav2vec2_weights(
-        config=config, module=module)
-    )
 
   def freeze_feature_encoder(self) -> None:
     """Disable the gradient computation for the feature encoder."""
