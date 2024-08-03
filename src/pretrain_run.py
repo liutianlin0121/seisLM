@@ -27,7 +27,8 @@ DEFAULT_NUM_WORKERS = 4
 def train_self_supervised(
   *,
   config: ml_collections.ConfigDict,
-  project_name: str
+  project_name: str,
+  run_name_prefix: str,
   ) -> None:
   """
   Args:
@@ -85,8 +86,8 @@ def train_self_supervised(
   logger = WandbLogger(
       project=project_name,
       save_dir=project_path.MODEL_SAVE_DIR,
-      name=f"{config.seed}__{formatted_time}",
-      id=f"{config.seed}__{formatted_time}",
+      name=f"{run_name_prefix}_{config.seed}__{formatted_time}",
+      id=f"{run_name_prefix}_{config.seed}__{formatted_time}",
       save_code=True,
   )
 
@@ -137,6 +138,7 @@ if __name__ == '__main__':
   with open(args.config_path, "r", encoding="utf-8") as f:
     config = json.load(f)
   config = ml_collections.ConfigDict(config)
+  run_name_prefix = args.config_path.split("/")[-1].split(".")[0]
 
   if args.test_run:
     # if test_run is True, train for only 1 epoch w/ a small batchsize.
@@ -152,7 +154,8 @@ if __name__ == '__main__':
   try:
     train_self_supervised(
       config=config,
-      project_name=project_name
+      project_name=project_name,
+      run_name_prefix=run_name_prefix
     )
 
   except Exception as e:
