@@ -1,5 +1,5 @@
 """Data collator for Wav2Vec2ForPreTraining model."""
-from typing import Optional, Dict
+from typing import Optional, Dict, Union, List, Tuple
 from dataclasses import dataclass
 import ml_collections
 import torch
@@ -35,11 +35,19 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
   mask_time_prob: Optional[float] = 0.65
   mask_time_length: Optional[int] = 10
 
-  def __call__(self, sample: Dict[str, np.ndarray]
-               ) -> Dict[str, torch.Tensor]:
+  def __call__(self, sample:
+        List[Union[Dict[str, np.ndarray], Tuple[np.ndarray, np.ndarray]]]
+      ) -> Dict[str, torch.Tensor]:
 
-    features = np.stack([s['X'] for s in sample])
-    features = torch.from_numpy(features)
+    if isinstance(sample[0], dict):
+      features = np.stack([s['X'] for s in sample])
+      features = torch.from_numpy(features)
+    elif isinstance(sample[0], tuple):
+      # Here, we assume that the first element of the list is the feature.
+      features = np.stack([s[0] for s in sample])
+      features = torch.from_numpy(features)
+    else:
+      raise ValueError(f"Invalid collator input {sample}")
 
     batch_size, _, seq_length = features.shape
 

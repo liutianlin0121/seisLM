@@ -1,4 +1,5 @@
 """ Models for the foreshock-aftershock classification task. """
+import copy
 import math
 from typing import Dict, Tuple, Union, Any, Sequence
 
@@ -92,19 +93,52 @@ class Conv1DShockClassifier(nn.Module):
     return x
 
 
+class MeanStdPooling(nn.Module):
+  def __init__(self):
+    super(MeanStdPooling, self).__init__()
+
+  def forward(self, x):
+    """
+    Forward pass for mean and standard deviation pooling.
+
+    Args:
+        x (torch.Tensor): Input tensor of shape (batch_size, channel_number, seq_length)
+    Returns:
+        torch.Tensor: Output tensor of shape (batch_size, channel_number * 2)
+    """
+    mean = x.mean(dim=2)  # Compute mean over seq_length
+    std = x.std(dim=2)    # Compute std over seq_length
+    pooled = torch.cat((mean, std), dim=1)  # Concatenate along channel dimension
+    return pooled
+
+
 class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
   def __init__(self, config: ml_collections.ConfigDict):
     super().__init__(config)
 
     self.head = nn.Sequential(
       Rearrange('b l c -> b c l'),
+      DoubleConvBlock(
+        in_channels=config.hidden_size,
+        out_channels=config.classifier_proj_size,
+        kernel_size=3,
+        dropout_rate=config.dropout_rate
+      ),
       Reduce('b c l -> b c', reduction='mean'),
-      nn.Linear(config.hidden_size, config.classifier_proj_size, bias=False),
-      torch.nn.BatchNorm1d(config.classifier_proj_size),
-      nn.Tanh(),
       nn.Dropout(config.dropout_rate),
       nn.Linear(config.classifier_proj_size, config.num_classes)
     )
+
+    # self.head = nn.Sequential(
+    #   Rearrange('b l c -> b c l'),
+    #   Reduce('b c l -> b c', reduction='mean'),
+    #   # MeanStdPooling(),
+    #   nn.Linear(config.hidden_size, config.classifier_proj_size, bias=False),
+    #   torch.nn.BatchNorm1d(config.classifier_proj_size),
+    #   nn.Tanh(),
+    #   # nn.Dropout(config.dropout_rate),
+    #   nn.Linear(config.classifier_proj_size, config.num_classes)
+    # )
 
     # self.apply(
     #   lambda module: initialization.init_wav2vec2_weights(
@@ -291,14 +325,30 @@ class Wav2vec2ShockClassifierLit(BaseShockClassifierLit):
 
     model_config = new_config
     self.model = Wav2Vec2ForSequenceClassification(model_config)
+    self.pretrained_weights = copy.deepcopy(
+      pretrained_model.wav2vec2.state_dict()
+    )
 
     self.model.wav2vec2.load_state_dict(
         pretrained_model.wav2vec2.state_dict()
     )
-    self.model.freeze_feature_encoder()
+    # self.model.freeze_feature_encoder()
     # self.model.freeze_base_model()
     del pretrained_model
     self.model_config = model_config
+
+
+  def training_step(self, batch: Tuple, batch_idx: int) -> Tensor:
+    waveforms, labels = batch
+    logits = self(waveforms)
+    loss = torch.nn.functional.cross_entropy(logits, labels)
+
+    predicted_labels = torch.argmax(logits, 1)
+    self.train_acc(predicted_labels, labels)
+
+    self.log("train/loss", loss, sync_dist=True, prog_bar=True, on_step=True)
+    self.log("train/acc", self.train_acc, sync_dist=True, prog_bar=True)
+    return loss  # this is passed to the optimizer for training
 
   def configure_optimizers(self): # type: ignore
 
@@ -340,140 +390,3 @@ class Wav2vec2ShockClassifierLit(BaseShockClassifierLit):
         'frequency': 1,
     }
     return {"optimizer": optimizer, "lr_scheduler": sched_config}
-
-
-# class ShockClassifierLit(L.LightningModule):
-#   """ A LightningModule for the Conv1DShockClassifier model. """
-#   def __init__(
-#     self,
-#     model_name: str,
-#     model_config: ml_collections.ConfigDict,
-#     training_config: ml_collections.ConfigDict
-#     ):
-#     super().__init__()
-#     self.save_hyperparameters()
-#     self.training_config = training_config
-
-#     if model_name == "Conv1DShockClassifier":
-#       self.model = Conv1DShockClassifier(model_config)
-#     elif model_name == "Wav2Vec2ForSequenceClassification":
-#       pretrained_model = pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
-#           model_config.pretrained_ckpt_path
-#       ).model
-
-#       ## TODO: temp fix for the config issue
-#       new_config = pretrained_model.config
-#       for key, value in model_config.items():
-#         setattr(new_config, key, value)
-
-#       # for key, value in new_config.to_dict().items():
-#       #   if ('dropout' in key) and ('attention' not in key) and ('quantizer' not in key):
-#       #     new_value = model_config.dropout_rate
-#       #     print(f'Orig. {key} value: {value}. New value: {new_value}')
-#       #     setattr(new_config, key, new_value)
-
-#       model_config = new_config
-#       self.model = Wav2Vec2ForSequenceClassification(model_config)
-
-#       self.model.wav2vec2.load_state_dict(
-#           pretrained_model.wav2vec2.state_dict()
-#       )
-#       self.model.freeze_feature_encoder()
-#       # self.model.freeze_base_model()
-#       del pretrained_model
-#     else:
-#       raise ValueError(f"Model {model_name} not recognized.")
-
-#     self.model_config = model_config
-#     self.train_acc = torchmetrics.Accuracy(
-#       task="multiclass", num_classes=model_config.num_classes
-#     )
-#     self.val_acc = torchmetrics.Accuracy(
-#       task="multiclass", num_classes=model_config.num_classes
-#     )
-#     self.test_acc = torchmetrics.Accuracy(
-#       task="multiclass", num_classes=model_config.num_classes
-#     )
-
-#   def forward(self, waveforms: Tensor) -> Tensor:
-#     logits = self.model(waveforms)
-#     return logits
-
-
-#   def on_before_optimizer_step(self, optimizer: Optimizer) -> None:
-#     # inspect (unscaled) gradients here
-#     self.log_dict(grad_norm(self, norm_type=2))
-
-#   def training_step(self, batch: Tuple, batch_idx: int) -> Tensor:
-#     waveforms, labels = batch
-#     logits = self(waveforms)
-#     loss = torch.nn.functional.cross_entropy(logits, labels)
-#     predicted_labels = torch.argmax(logits, 1)
-#     self.train_acc(predicted_labels, labels)
-
-#     self.log("train/loss", loss, sync_dist=True, prog_bar=True, on_step=True)
-#     self.log("train/acc", self.train_acc, sync_dist=True, prog_bar=True)
-
-#     return loss  # this is passed to the optimizer for training
-
-#   def validation_step(self, batch: Tuple, batch_idx: int) -> None:
-
-#     waveforms, labels = batch
-
-#     logits = self(waveforms)
-#     loss = torch.nn.functional.cross_entropy(logits, labels)
-#     predicted_labels = torch.argmax(logits, 1)
-#     self.val_acc(predicted_labels, labels)
-#     self.log("val/loss", loss, sync_dist=True, prog_bar=True)
-#     self.log("val/acc", self.val_acc, sync_dist=True, prog_bar=True)
-
-
-#   def test_step(self, batch: Tuple, batch_idx: int) -> None:
-#     waveforms, labels = batch
-#     logits = self(waveforms)
-#     loss = torch.nn.functional.cross_entropy(logits, labels)
-#     predicted_labels = torch.argmax(logits, 1)
-#     self.test_acc(predicted_labels, labels)
-#     self.log("test/loss", loss, sync_dist=True, prog_bar=True)
-#     self.log("test/acc", self.test_acc, sync_dist=True, prog_bar=True)
-
-#   def configure_optimizers(self): # type: ignore
-
-#     if self.training_config.optimizer == "adamw":
-#       optimizer = torch.optim.AdamW(
-#           filter(lambda p: p.requires_grad, self.parameters()),
-#           **self.training_config.optimizer_args
-#       )
-#     elif self.training_config.optimizer == "sgd":
-#       optimizer = torch.optim.SGD(
-#           filter(lambda p: p.requires_grad, self.parameters()),
-#           **self.training_config.optimizer_args
-#       )
-#     else:
-#       raise ValueError(
-#           f"Optimizer {self.training_config.optimizer} not recognized."
-#       )
-#     t_max = int(
-#       self.training_config.max_train_steps // self.trainer.num_devices
-#     )
-#     t_warmup = int((self.training_config.warmup_frac_step * (
-#       self.training_config.max_train_steps)) // self.trainer.num_devices
-#     )
-
-#     # Linear warmup and half-cycle cosine decay
-#     def lr_lambda(step: int): # type: ignore
-#       if step < t_warmup:
-#         # Linear warm-up
-#         return step / t_warmup
-#       else:
-#         # Cosine annealing over remaining steps
-#         return 0.5 * (
-#           1 + np.cos((step - t_warmup) * math.pi / (t_max - t_warmup))
-#         )
-
-#     sched_config = {
-#         'scheduler': LambdaLR(optimizer, lr_lambda),
-#         'interval': "step",
-#         'frequency': 1,
-#     }
-#     return {"optimizer": optimizer, "lr_scheduler": sched_config}

@@ -18,7 +18,7 @@
     "devices": 2,
     "strategy": "ddp",
     "accelerator": "gpu",
-    "max_epochs": 100,
+    "max_epochs": 10,
     "warmup_frac_step": 0.0,
     "optimizer": "adamw",
     "unfreeze_base_at_epoch": 0,
@@ -29,7 +29,7 @@
       }
   },
   "model_args": {
-    "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/42__2024-08-01-18h-03m-01s/checkpoints/epoch=12-step=99515.ckpt",
+    "pretrained_ckpt_path": "/home/liu0003/Desktop/projects/seisLM/results/models/pretrained_seisLM/42__2024-08-01-18h-03m-01s/checkpoints/epoch=23-step=183720.ckpt",
     "classifier_proj_size": 256,
     "use_weighted_layer_sum": false,
     "dropout_rate": 0.2

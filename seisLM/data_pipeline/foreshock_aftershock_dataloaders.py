@@ -1,5 +1,5 @@
 """Dataloaders for the foreshock-aftershock dataset. """
-from typing import Dict
+from typing import Dict, Any
 import torch
 import numpy as np
 from seisLM.data_pipeline import foreshock_aftershock_dataset as dataset
@@ -21,6 +21,7 @@ def prepare_foreshock_aftershock_dataloaders(
   amp_norm_type: str = 'peak',
   num_workers: int = 8,
   dimension_order: str = 'NCW',
+  collator: Any = None,
   ) -> Dict[str, torch.utils.data.DataLoader]:
   ''' Create dataloaders for the foreshock-aftershock dataset.'''
 
@@ -76,6 +77,7 @@ def prepare_foreshock_aftershock_dataloaders(
       shuffle=True,
       pin_memory=True,
       num_workers=num_workers,
+      collate_fn=collator,
     ),
     'val': torch.utils.data.DataLoader(
       torch.utils.data.TensorDataset(X_val, y_val),
@@ -83,6 +85,7 @@ def prepare_foreshock_aftershock_dataloaders(
       shuffle=False,
       pin_memory=True,
       num_workers=num_workers,
+      collate_fn=collator,
     ),
     'test': torch.utils.data.DataLoader(
       torch.utils.data.TensorDataset(X_test, y_test),
@@ -90,6 +93,7 @@ def prepare_foreshock_aftershock_dataloaders(
       shuffle=False,
       pin_memory=True,
       num_workers=num_workers,
+      collate_fn=collator,
     )
   }
 
