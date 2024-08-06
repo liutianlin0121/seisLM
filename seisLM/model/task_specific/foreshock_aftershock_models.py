@@ -3,6 +3,7 @@ import copy
 import math
 from typing import Dict, Tuple, Union, Any, Sequence
 
+import einops
 import lightning as L
 import ml_collections
 import numpy as np
@@ -14,6 +15,7 @@ from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
 from einops.layers.torch import Reduce, Rearrange
+from speechbrain.lobes.models.ECAPA_TDNN import AttentiveStatisticsPooling
 
 from seisLM.model.foundation import initialization
 
@@ -112,19 +114,42 @@ class MeanStdPooling(nn.Module):
     return pooled
 
 
+# class AttentiveStatPool1D(nn.Module):
+#     def __init__(self, embedding_size: int, dim_to_reduce: int = 2):
+#         super().__init__()
+#         self.pooling_layer = AttentiveStatisticsPooling(embedding_size)
+#         self.dim_to_reduce = dim_to_reduce
+
+#     def forward(self, tensor: Tensor):
+#         if self.dim_to_reduce == 2:
+#             pooled_embedding = self.pooling_layer(tensor)
+#         elif self.dim_to_reduce == 1:
+#             pooled_embedding = self.pooling_layer(tensor.transpose(1, 2))
+#         else:
+#             raise ValueError("can only pool dimension 1 or 2")
+
+#         pooled_embedding = pooled_embedding.squeeze()
+
+#         if len(pooled_embedding.shape) == 1:
+#             pooled_embedding = pooled_embedding[None, :]
+
+#         return pooled_embedding
+
 class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
   def __init__(self, config: ml_collections.ConfigDict):
     super().__init__(config)
 
+
     self.head = nn.Sequential(
+      nn.Dropout1d(0.4), # dropout entire timesteps
       Rearrange('b l c -> b c l'),
-      DoubleConvBlock(
-        in_channels=config.hidden_size,
-        out_channels=config.classifier_proj_size,
-        kernel_size=3,
-        dropout_rate=config.dropout_rate
+      nn.Dropout1d(0.4), # dropout entire channels
+      MeanStdPooling(), # [b, c, l] -> [b, 2c]
+      nn.Linear(
+        2 * config.hidden_size, config.classifier_proj_size, bias=False
       ),
-      Reduce('b c l -> b c', reduction='mean'),
+      nn.LayerNorm(config.classifier_proj_size),
+      nn.GELU(),
       nn.Dropout(config.dropout_rate),
       nn.Linear(config.classifier_proj_size, config.num_classes)
     )
@@ -152,8 +177,7 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
     #   'kernel_size': 3,
     #   'dropout_rate': config.dropout_rate,
     # })
-    # self.head = nn.Sequential(
-    #   # Rearrange('b l c -> b c l'),
+    # self.skip_head = nn.Sequential(
     #   Conv1DShockClassifier(conv_config)
     # )
 
@@ -169,8 +193,6 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
     """
     hidden_states = self.get_wav2vec2_hidden_states(input_values)
     logits = self.head(hidden_states)
-    # input_values = input_values + hidden_states.mean(axis=[0, 1, 2]) * 0.0
-    # logits = self.head(input_values)
     return logits
 
 
@@ -187,6 +209,9 @@ class BaseShockClassifierLit(L.LightningModule):
     self.model_config = model_config
     self.training_config = training_config
     self.model = nn.Identity() # dummy model
+    self.loss_fn = nn.CrossEntropyLoss(
+      label_smoothing=training_config.get('label_smoothing', 0.0)
+    )
 
     self.train_acc = torchmetrics.Accuracy(
       task="multiclass", num_classes=model_config.num_classes
@@ -210,7 +235,8 @@ class BaseShockClassifierLit(L.LightningModule):
   def training_step(self, batch: Tuple, batch_idx: int) -> Tensor:
     waveforms, labels = batch
     logits = self(waveforms)
-    loss = torch.nn.functional.cross_entropy(logits, labels)
+    # loss = torch.nn.functional.cross_entropy(logits, labels)
+    loss = self.loss_fn(logits, labels)
     predicted_labels = torch.argmax(logits, 1)
     self.train_acc(predicted_labels, labels)
 

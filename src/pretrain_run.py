@@ -19,7 +19,7 @@ from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import WandbLogger
 from seisLM.model.foundation.pretrained_models import LitMultiDimWav2Vec2
 from seisLM.data_pipeline import collator
-from seisLM.data_pipeline import seisbench_dataloaders as dataloaders
+from seisLM.data_pipeline import pretrain_dataloaders as dataloaders
 from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
@@ -52,7 +52,7 @@ def train_self_supervised(
   config.data_config.num_workers = int(
     os.environ.get('SLURM_CPUS_PER_TASK', DEFAULT_NUM_WORKERS))
 
-  train_loader, dev_loader = dataloaders.prepare_seisbench_dataloaders(
+  train_loader, dev_loaders = dataloaders.prepare_pretrain_dataloaders(
     model=model,
     training_fraction=config.data_config.training_fraction,
     data_names=config.data_config.data_name,
@@ -62,6 +62,8 @@ def train_self_supervised(
     collator=data_collator,
     cache=config.data_config.cache_dataset,
   )
+
+  dev_loaders_iterable = list(dev_loaders.values())
 
   config.training_config.max_train_steps = (
     config.training_config.max_epochs * len(train_loader)
@@ -114,7 +116,7 @@ def train_self_supervised(
   trainer.fit(
       model,
       train_dataloaders=train_loader,
-      val_dataloaders=dev_loader,
+      val_dataloaders=dev_loaders_iterable,
   )
 
 if __name__ == '__main__':
@@ -144,8 +146,10 @@ if __name__ == '__main__':
     # if test_run is True, train for only 1 epoch w/ a small batchsize.
     print("Running in test mode")
     config.training_config.max_epochs = 1
-    config.data_config.local_batch_size = 8
+    config.data_config.local_batch_size = 4 #8
+    config.data_config.data_name = ['ETHZ']
     config.training_config.detect_anomaly = True
+    config.training_config.devices=2
     project_name = "test_pretrained_seisLM"
   else:
     config.training_config.detect_anomaly = False

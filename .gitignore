@@ -14,4 +14,4 @@ figs/
 *.e*
 *.o*
 core.*
-.vscode/
+.mypy_cache/

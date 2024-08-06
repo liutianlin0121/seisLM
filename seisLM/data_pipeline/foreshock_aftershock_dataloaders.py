@@ -1,5 +1,5 @@
 """Dataloaders for the foreshock-aftershock dataset. """
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import torch
 import numpy as np
 from seisLM.data_pipeline import foreshock_aftershock_dataset as dataset
@@ -16,8 +16,8 @@ def prepare_foreshock_aftershock_dataloaders(
   train_frac: float = 0.70,
   val_frac: float = 0.10,
   test_frac: float = 0.20,
-  demean: bool = True,
-  amp_norm: bool = True,
+  demean_axis: Optional[int] = -1,
+  amp_norm_axis: Optional[int] = -1,
   amp_norm_type: str = 'peak',
   num_workers: int = 8,
   dimension_order: str = 'NCW',
@@ -47,15 +47,14 @@ def prepare_foreshock_aftershock_dataloaders(
 
 
   def normalize(X: np.ndarray) -> np.ndarray:
-    norm_axis = dimension_order.index('W')
-    if demean:
-      X = X - np.mean(X, axis=norm_axis, keepdims=True)
+    if demean_axis is not None:
+      X = X - np.mean(X, axis=demean_axis, keepdims=True)
 
-    if amp_norm:
+    if amp_norm_axis is not None:
       if amp_norm_type == 'std':
-        X = X / (np.std(X, axis=norm_axis, keepdims=True) + 1e-10)
+        X = X / (np.std(X, axis=amp_norm_axis, keepdims=True) + 1e-10)
       elif amp_norm_type == 'peak':
-        X = X / (np.max(np.abs(X), axis=norm_axis, keepdims=True) + 1e-10)
+        X = X / (np.max(np.abs(X), axis=amp_norm_axis, keepdims=True) + 1e-10)
       else:
         raise ValueError(f'Normalization type {amp_norm_type} not supported')
     return X

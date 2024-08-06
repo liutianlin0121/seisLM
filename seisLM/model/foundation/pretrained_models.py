@@ -1,5 +1,6 @@
 """Wav2Vec2 model."""
 from typing import Dict, List, Any
+import copy
 import math
 import numpy as np
 import torch
@@ -23,6 +24,9 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     self.config = config
     self.model = MultiDimWav2Vec2ForPreTraining(config.model_config)
     self.save_hyperparameters()
+    val_dataloader_names = copy.deepcopy(config.data_config.data_name)
+    val_dataloader_names = val_dataloader_names + ['shock']
+    self.val_dataloader_names = val_dataloader_names
 
   def on_before_optimizer_step(self, optimizer: Optimizer) -> None:
     # inspect (unscaled) gradients here
@@ -75,15 +79,19 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     return loss
 
 
-  def validation_step(self, batch: Dict, batch_idx: int) -> Dict:
+  def validation_step(
+    self, batch: Dict, batch_idx: int, dataloader_idx: int=0) -> Dict:
     # pylint:disable=missing-function-docstring
     # pylint:disable=invalid-name
+
+    dataloader_name = self.val_dataloader_names[dataloader_idx]
     outputs = self.model(**batch)
     validation_outputs = {
-      "val/sum_loss": outputs.loss,
-      "val/sum_contrastive_loss": outputs.contrastive_loss,
-      "val/sum_diversity_loss": outputs.diversity_loss,
-      "val/sum_num_losses": batch["mask_time_indices"].sum().float(),
+      f"val/{dataloader_name}_sum_loss": outputs.loss,
+      f"val/{dataloader_name}_sum_contrastive_loss": outputs.contrastive_loss,
+      f"val/{dataloader_name}_sum_diversity_loss": outputs.diversity_loss,
+      f"val/{dataloader_name}_sum_num_losses": batch[
+        "mask_time_indices"].sum().float(),
     }
 
     # Sum losses across all batches and all devices
@@ -98,19 +106,46 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     # pylint:disable=invalid-name
 
     metrics = self.trainer.logged_metrics
-    sum_num_losses = metrics.get('val/sum_num_losses', 0)
-    if sum_num_losses == 0:
-      raise ValueError("total_num_losses=0. Something went wrong.")
-
     avg_metrics = {}
-    metric_keys = list(metrics.keys())
-    for key in metric_keys:
-      if key.startswith('val/sum_'):
-        value = metrics.pop(key)
-        avg_key = key.replace('sum_', '')
-        avg_metrics[avg_key] = value / sum_num_losses
-    avg_metrics.pop('val/num_losses')
+
+    # Iterate through each dataloader name
+    for dataloader_name in self.val_dataloader_names:
+      # Get the sum of losses for the current dataloader
+      sum_num_losses_key = f'val/{dataloader_name}_sum_num_losses'
+      sum_num_losses = metrics.get(sum_num_losses_key, 0)
+      # if sum_num_losses == 0:
+      #   raise ValueError(
+      #     f"{dataloader_name}: total_num_losses=0. Something went wrong.")
+
+      # Compute the average for each type of loss
+      for key in metrics.keys():
+        if key.startswith(f'val/{dataloader_name}_sum_'):
+          value = metrics[key]
+          avg_key = key.replace('sum_', '')
+          avg_metrics[avg_key] = value / sum_num_losses
+
+    # Log the averaged metrics
     self.log_dict(avg_metrics, prog_bar=True, sync_dist=True)
+
+
+  # def on_validation_epoch_end(self) -> None:
+  #   # pylint:disable=missing-function-docstring
+  #   # pylint:disable=invalid-name
+
+  #   metrics = self.trainer.logged_metrics
+  #   sum_num_losses = metrics.get('val/sum_num_losses', 0)
+  #   if sum_num_losses == 0:
+  #     raise ValueError("total_num_losses=0. Something went wrong.")
+
+  #   avg_metrics = {}
+  #   metric_keys = list(metrics.keys())
+  #   for key in metric_keys:
+  #     if key.startswith('val/sum_'):
+  #       value = metrics.pop(key)
+  #       avg_key = key.replace('sum_', '')
+  #       avg_metrics[avg_key] = value / sum_num_losses
+  #   avg_metrics.pop('val/num_losses')
+  #   self.log_dict(avg_metrics, prog_bar=True, sync_dist=True)
 
   def configure_optimizers(self): # type: ignore
     optimizer = torch.optim.AdamW(
@@ -153,12 +188,25 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     return [
         # Select windows around picks to reduce the amount of noise traces in
         # training.
-        sbg.WindowAroundSample(
-            list(phase_dict.keys()),
-            samples_before=3000,
-            windowlen=6000,
-            selection="random",
-            strategy="variable",
+        # sbg.WindowAroundSample(
+        #     list(phase_dict.keys()),
+        #     samples_before=3000,
+        #     windowlen=6000,
+        #     selection="random",
+        #     strategy="variable",
+        # ),
+        sbg.OneOf(
+            [
+                sbg.WindowAroundSample(
+                    list(phase_dict.keys()),
+                    samples_before=3000,
+                    windowlen=6000,
+                    selection="random",
+                    strategy="variable",
+                ),
+                sbg.NullAugmentation(),
+            ],
+            probabilities=[2, 1],
         ),
         sbg.RandomWindow(
             low=None,

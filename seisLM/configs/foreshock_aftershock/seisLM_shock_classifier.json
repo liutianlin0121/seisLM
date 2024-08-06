@@ -29,9 +29,9 @@
       }
   },
   "model_args": {
-    "pretrained_ckpt_path": "/home/liu0003/Desktop/projects/seisLM/results/models/pretrained_seisLM/42__2024-08-01-18h-03m-01s/checkpoints/epoch=23-step=183720.ckpt",
+    "pretrained_ckpt_path": "/home/liu0003/Desktop/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_layernorm_peak_small_batch_6_datasets_42__2024-08-03-21h-32m-39s/checkpoints/epoch=20-step=552048.ckpt",
     "classifier_proj_size": 256,
-    "use_weighted_layer_sum": false,
+    "use_weighted_layer_sum": true,
     "dropout_rate": 0.2
   }
 }
