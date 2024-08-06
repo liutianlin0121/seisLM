@@ -84,68 +84,21 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     # pylint:disable=missing-function-docstring
     # pylint:disable=invalid-name
 
-    dataloader_name = self.val_dataloader_names[dataloader_idx]
+    num_losses = batch["mask_time_indices"].sum().float()
     outputs = self.model(**batch)
     validation_outputs = {
-      f"val/{dataloader_name}_sum_loss": outputs.loss,
-      f"val/{dataloader_name}_sum_contrastive_loss": outputs.contrastive_loss,
-      f"val/{dataloader_name}_sum_diversity_loss": outputs.diversity_loss,
-      f"val/{dataloader_name}_sum_num_losses": batch[
-        "mask_time_indices"].sum().float(),
+      "val/loss": outputs.loss / num_losses,
+      "val/contrastive_loss": outputs.contrastive_loss / num_losses,
+      "val/diversity_loss": outputs.diversity_loss / num_losses,
+      "val/num_losses": num_losses,
     }
-
-    # Sum losses across all batches and all devices
+    # Average losses across all batches and all devices
     self.log_dict(
-      validation_outputs, reduce_fx="sum",
+      validation_outputs, reduce_fx="mean",
       on_step=False, on_epoch=True, sync_dist=True
     )
     return validation_outputs
 
-  def on_validation_epoch_end(self) -> None:
-    # pylint:disable=missing-function-docstring
-    # pylint:disable=invalid-name
-
-    metrics = self.trainer.logged_metrics
-    avg_metrics = {}
-
-    # Iterate through each dataloader name
-    for dataloader_name in self.val_dataloader_names:
-      # Get the sum of losses for the current dataloader
-      sum_num_losses_key = f'val/{dataloader_name}_sum_num_losses'
-      sum_num_losses = metrics.get(sum_num_losses_key, 0)
-      # if sum_num_losses == 0:
-      #   raise ValueError(
-      #     f"{dataloader_name}: total_num_losses=0. Something went wrong.")
-
-      # Compute the average for each type of loss
-      for key in metrics.keys():
-        if key.startswith(f'val/{dataloader_name}_sum_'):
-          value = metrics[key]
-          avg_key = key.replace('sum_', '')
-          avg_metrics[avg_key] = value / sum_num_losses
-
-    # Log the averaged metrics
-    self.log_dict(avg_metrics, prog_bar=True, sync_dist=True)
-
-
-  # def on_validation_epoch_end(self) -> None:
-  #   # pylint:disable=missing-function-docstring
-  #   # pylint:disable=invalid-name
-
-  #   metrics = self.trainer.logged_metrics
-  #   sum_num_losses = metrics.get('val/sum_num_losses', 0)
-  #   if sum_num_losses == 0:
-  #     raise ValueError("total_num_losses=0. Something went wrong.")
-
-  #   avg_metrics = {}
-  #   metric_keys = list(metrics.keys())
-  #   for key in metric_keys:
-  #     if key.startswith('val/sum_'):
-  #       value = metrics.pop(key)
-  #       avg_key = key.replace('sum_', '')
-  #       avg_metrics[avg_key] = value / sum_num_losses
-  #   avg_metrics.pop('val/num_losses')
-  #   self.log_dict(avg_metrics, prog_bar=True, sync_dist=True)
 
   def configure_optimizers(self): # type: ignore
     optimizer = torch.optim.AdamW(
