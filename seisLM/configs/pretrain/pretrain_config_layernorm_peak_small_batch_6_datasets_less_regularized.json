@@ -19,7 +19,7 @@
       2,
       2
     ],
-    "diversity_loss_weight": 0.1,
+    "diversity_loss_weight": 0.01,
     "do_stable_layer_norm": true,
     "feat_extract_norm": "layer",
     "feat_proj_dropout": 0.0,
@@ -63,7 +63,7 @@
     "devices": 4,
     "max_epochs": 40,
     "precision": "16-mixed",
-    "learning_rate": 5e-4,
+    "learning_rate": 1e-3,
     "log_every_n_steps": 100,
     "mask_time_length": 10,
     "mask_time_prob": 0.65,
