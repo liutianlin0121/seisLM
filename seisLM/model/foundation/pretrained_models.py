@@ -141,26 +141,26 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     return [
         # Select windows around picks to reduce the amount of noise traces in
         # training.
-        # sbg.WindowAroundSample(
-        #     list(phase_dict.keys()),
-        #     samples_before=3000,
-        #     windowlen=6000,
-        #     selection="random",
-        #     strategy="variable",
-        # ),
-        sbg.OneOf(
-            [
-                sbg.WindowAroundSample(
-                    list(phase_dict.keys()),
-                    samples_before=3000,
-                    windowlen=6000,
-                    selection="random",
-                    strategy="variable",
-                ),
-                sbg.NullAugmentation(),
-            ],
-            probabilities=[2, 1],
+        sbg.WindowAroundSample(
+            list(phase_dict.keys()),
+            samples_before=3000,
+            windowlen=6000,
+            selection="random",
+            strategy="variable",
         ),
+        # sbg.OneOf(
+        #     [
+        #         sbg.WindowAroundSample(
+        #             list(phase_dict.keys()),
+        #             samples_before=3000,
+        #             windowlen=6000,
+        #             selection="random",
+        #             strategy="variable",
+        #         ),
+        #         sbg.NullAugmentation(),
+        #     ],
+        #     probabilities=[2, 1],
+        # ),
         sbg.RandomWindow(
             low=None,
             high=None,
