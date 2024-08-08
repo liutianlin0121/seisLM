@@ -10,9 +10,9 @@
     "val_frac": 0.10,
     "test_frac": 0.20,
     "dimension_order": "NCW",
-    "demean": true,
-    "amp_norm": true,
-    "amp_norm_type": "peak"
+    "demean_axis": -1,
+    "amp_norm_axis": -1,
+    "amp_norm_type": "std"
   },
   "trainer_args": {
     "devices": 2,

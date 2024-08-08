@@ -1,7 +1,7 @@
 """ Models for the foreshock-aftershock classification task. """
 import copy
 import math
-from typing import Dict, Tuple, Union, Any, Sequence
+from typing import Tuple, Union, Sequence
 
 import einops
 import lightning as L
@@ -14,10 +14,8 @@ from lightning.pytorch.utilities import grad_norm
 from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
-from einops.layers.torch import Reduce, Rearrange
-from speechbrain.lobes.models.ECAPA_TDNN import AttentiveStatisticsPooling
 
-from seisLM.model.foundation import initialization
+from einops.layers.torch import Reduce, Rearrange
 
 from seisLM.model.foundation import pretrained_models
 from seisLM.model.task_specific.shared_task_specific import (
@@ -86,54 +84,53 @@ class Conv1DShockClassifier(nn.Module):
     self.conv_encoder = nn.Sequential(*layers)
     self.global_pool = nn.AdaptiveAvgPool1d(1)
     self.fc = nn.Linear(out_channels, config.num_classes)
+    # self.fc2 = nn.Linear(out_channels, config.num_classes)
 
-  def forward(self, x: Tensor) -> Tensor:
-    x = self.conv_encoder(x)
-    x = self.global_pool(x)
+    # # Copy the weights and biases from fc1 to fc2
+    # self.fc2.weight.data = self.fc1.weight.data.clone()
+    # self.fc2.bias.data = self.fc1.bias.data.clone()
+
+
+
+  def get_cam(self, x: Tensor, interp: bool = True) -> torch.Tensor:
+    # x is of shape (batch_size, channels, sequence_length)
+
+    # conv_features: [batch_size, out_channels, sequence_length]
+    # logits: [batch_size, num_classes]
+    logits, conv_features = self.forward(x, return_features=True)
+    predicted_class_idx = torch.argmax(logits, 1)
+
+    # Weight of the final layer for the class of interest
+    # Shape: (batch_size, out_channels)
+    fc_weights = self.fc.weight[predicted_class_idx]
+
+    # Compute the weighted sum of the feature maps
+    cam = torch.einsum("bo,bow->bw", fc_weights, conv_features)
+    # cam = torch.nn.functional.relu(cam)
+
+    if interp:
+      original_length = x.size(2)
+      cam = torch.nn.functional.interpolate(
+        einops.rearrange(cam, 'b w -> b 1 w'),
+        size=original_length, mode='linear', align_corners=False
+      )
+    # cam = torch.nn.functional.relu(cam)  # Apply ReLU after interpolation
+    return cam
+
+  def forward(
+    self, x: Tensor,
+    return_features: bool = False
+    ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
+
+    conv_features = self.conv_encoder(x)
+    x = self.global_pool(conv_features)
     x = x.view(x.size(0), -1)
     x = self.fc(x)
+    if return_features:
+      return x, conv_features
     return x
 
 
-class MeanStdPooling(nn.Module):
-  def __init__(self):
-    super(MeanStdPooling, self).__init__()
-
-  def forward(self, x):
-    """
-    Forward pass for mean and standard deviation pooling.
-
-    Args:
-        x (torch.Tensor): Input tensor of shape (batch_size, channel_number, seq_length)
-    Returns:
-        torch.Tensor: Output tensor of shape (batch_size, channel_number * 2)
-    """
-    mean = x.mean(dim=2)  # Compute mean over seq_length
-    std = x.std(dim=2)    # Compute std over seq_length
-    pooled = torch.cat((mean, std), dim=1)  # Concatenate along channel dimension
-    return pooled
-
-
-# class AttentiveStatPool1D(nn.Module):
-#     def __init__(self, embedding_size: int, dim_to_reduce: int = 2):
-#         super().__init__()
-#         self.pooling_layer = AttentiveStatisticsPooling(embedding_size)
-#         self.dim_to_reduce = dim_to_reduce
-
-#     def forward(self, tensor: Tensor):
-#         if self.dim_to_reduce == 2:
-#             pooled_embedding = self.pooling_layer(tensor)
-#         elif self.dim_to_reduce == 1:
-#             pooled_embedding = self.pooling_layer(tensor.transpose(1, 2))
-#         else:
-#             raise ValueError("can only pool dimension 1 or 2")
-
-#         pooled_embedding = pooled_embedding.squeeze()
-
-#         if len(pooled_embedding.shape) == 1:
-#             pooled_embedding = pooled_embedding[None, :]
-
-#         return pooled_embedding
 
 class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
   def __init__(self, config: ml_collections.ConfigDict):
@@ -141,45 +138,12 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
 
 
     self.head = nn.Sequential(
-      nn.Dropout1d(0.4), # dropout entire timesteps
-      Rearrange('b l c -> b c l'),
-      nn.Dropout1d(0.4), # dropout entire channels
-      MeanStdPooling(), # [b, c, l] -> [b, 2c]
-      nn.Linear(
-        2 * config.hidden_size, config.classifier_proj_size, bias=False
-      ),
-      nn.LayerNorm(config.classifier_proj_size),
+      Reduce('b l c-> b c', reduction='mean'),
+      nn.Linear(config.hidden_size, config.classifier_proj_size, bias=False),
+      nn.BatchNorm1d(config.classifier_proj_size),
       nn.GELU(),
-      nn.Dropout(config.dropout_rate),
       nn.Linear(config.classifier_proj_size, config.num_classes)
     )
-
-    # self.head = nn.Sequential(
-    #   Rearrange('b l c -> b c l'),
-    #   Reduce('b c l -> b c', reduction='mean'),
-    #   # MeanStdPooling(),
-    #   nn.Linear(config.hidden_size, config.classifier_proj_size, bias=False),
-    #   torch.nn.BatchNorm1d(config.classifier_proj_size),
-    #   nn.Tanh(),
-    #   # nn.Dropout(config.dropout_rate),
-    #   nn.Linear(config.classifier_proj_size, config.num_classes)
-    # )
-
-    # self.apply(
-    #   lambda module: initialization.init_wav2vec2_weights(
-    #     config=config, module=module)
-    # )
-    # conv_config = ml_collections.ConfigDict({
-    #   'in_channels': 3, #config.hidden_size,
-    #   'num_classes': config.num_classes,
-    #   'num_layers': 3,
-    #   'initial_filters': 32,
-    #   'kernel_size': 3,
-    #   'dropout_rate': config.dropout_rate,
-    # })
-    # self.skip_head = nn.Sequential(
-    #   Conv1DShockClassifier(conv_config)
-    # )
 
 
   def forward(self, input_values: torch.Tensor,) -> Tensor:
@@ -351,9 +315,7 @@ class Wav2vec2ShockClassifierLit(BaseShockClassifierLit):
 
     model_config = new_config
     self.model = Wav2Vec2ForSequenceClassification(model_config)
-    self.pretrained_weights = copy.deepcopy(
-      pretrained_model.wav2vec2.state_dict()
-    )
+
 
     self.model.wav2vec2.load_state_dict(
         pretrained_model.wav2vec2.state_dict()
