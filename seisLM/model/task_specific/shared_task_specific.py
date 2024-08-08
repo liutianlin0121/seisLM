@@ -1,7 +1,7 @@
 """ Shared classes and functions for task-specific models. """
 from typing import Optional
 import abc
-
+import einops
 import torch
 from torch import nn
 import ml_collections
@@ -60,6 +60,7 @@ class BaseMultiDimWav2Vec2ForDownstreamTasks(nn.Module, abc.ABC):
 
   def get_wav2vec2_hidden_states(self,
       input_values: Optional[torch.Tensor],
+      concat_downsampled_input: Optional[bool] = False,
   ) -> torch.Tensor:
     """The forward pass of the sequence classification model.
 
@@ -69,6 +70,7 @@ class BaseMultiDimWav2Vec2ForDownstreamTasks(nn.Module, abc.ABC):
     Returns:
       the hidden states of the Wav2Vec2 model.
     """
+    input_seq_length = input_values.shape[-1]
     output_hidden_states = True if self.config.use_weighted_layer_sum else False
     outputs = self.wav2vec2(
         input_values,
@@ -88,7 +90,26 @@ class BaseMultiDimWav2Vec2ForDownstreamTasks(nn.Module, abc.ABC):
     else:
       # [B, L, config.hidden_size]
       hidden_states = outputs.last_hidden_state
+
+    if concat_downsampled_input:
+
+      if hidden_states.shape[1] != input_seq_length:
+        # change to [batch_size, hidden_size, seq_len]
+        input_values = torch.nn.functional.interpolate(
+          input_values, size=hidden_states.shape[1],
+          mode='linear', align_corners=False
+        )
+
+      # Concatenate the hidden_states with the input_values
+      hidden_states = torch.cat(
+        [einops.rearrange(input_values, 'b c l -> b l c'),
+         hidden_states
+        ],
+        dim=-1
+      )
     return hidden_states
+
+
 
   @abc.abstractmethod
   def forward(self, input_values: torch.Tensor,) -> torch.Tensor:

@@ -132,19 +132,49 @@ class Conv1DShockClassifier(nn.Module):
 
 
 
+class MeanStdStatPool1D(nn.Module):
+  def __init__(self, dim_to_reduce: int = 2):
+    super().__init__()
+    self.dim_to_reduce = dim_to_reduce
+
+  def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+    return torch.cat(torch.std_mean(tensor, self.dim_to_reduce), 1)
+
+
+
 class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
   def __init__(self, config: ml_collections.ConfigDict):
     super().__init__(config)
 
+    # assume the input to pooling is
+    # of shape [batch_size, channel_size, seq_len]
+    if config.pool_type == "mean":
+      pool = Reduce('b c l-> b c', reduction='mean')
+      pool_out_dim = config.hidden_size
 
-    self.head = nn.Sequential(
-      Reduce('b l c-> b c', reduction='mean'),
-      nn.Linear(config.hidden_size, config.classifier_proj_size, bias=False),
-      nn.BatchNorm1d(config.classifier_proj_size),
-      nn.GELU(),
-      nn.Linear(config.classifier_proj_size, config.num_classes)
-    )
+    elif config.pool_type == "mean_std":
+      pool = MeanStdStatPool1D(dim_to_reduce=2)
+      pool_out_dim = 2 * config.hidden_size
 
+    else:
+      raise ValueError(f"Pooling type {config.pool_type} not recognized.")
+
+    if config.concat_downsampled_input:
+      pool_out_dim += 3
+
+    if config.head_type == "mlp":
+      self.head = nn.Sequential(
+        Rearrange('b l c -> b c l'),
+        pool,
+        nn.Linear(pool_out_dim, config.classifier_proj_size, bias=False),
+        nn.BatchNorm1d(config.classifier_proj_size),
+        nn.GELU(),
+        nn.Dropout(config.dropout_rate),
+        nn.Linear(config.classifier_proj_size, config.num_classes)
+      )
+
+    else:
+      raise ValueError(f"Head type {config.head_type} not recognized.")
 
   def forward(self, input_values: torch.Tensor,) -> Tensor:
     """The forward pass of the sequence classification model.
@@ -155,7 +185,9 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
     Returns:
       logits: The classification logits.
     """
-    hidden_states = self.get_wav2vec2_hidden_states(input_values)
+    hidden_states = self.get_wav2vec2_hidden_states(
+      input_values, concat_downsampled_input=self.config.concat_downsampled_input
+    )
     logits = self.head(hidden_states)
     return logits
 
@@ -320,8 +352,19 @@ class Wav2vec2ShockClassifierLit(BaseShockClassifierLit):
     self.model.wav2vec2.load_state_dict(
         pretrained_model.wav2vec2.state_dict()
     )
-    # self.model.freeze_feature_encoder()
-    # self.model.freeze_base_model()
+
+    if model_config.freeze_feature_encoder:
+      self.model.freeze_feature_encoder()
+
+    if model_config.freeze_base_model:
+      self.model.freeze_base_model()
+
+    if model_config.freeze_base_model and (
+      not model_config.freeze_feature_encoder):
+      raise ValueError(
+        "It's unconventional to freeze the base model" \
+        "without freezing the feature encoder.")
+
     del pretrained_model
     self.model_config = model_config
 

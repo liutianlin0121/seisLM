@@ -19,7 +19,7 @@
     "strategy": "ddp",
     "accelerator": "gpu",
     "max_epochs": 10,
-    "warmup_frac_step": 0.0,
+    "warmup_frac_step": 0.4,
     "optimizer": "adamw",
     "unfreeze_base_at_epoch": 0,
     "optimizer_args":
@@ -29,9 +29,14 @@
       }
   },
   "model_args": {
-    "pretrained_ckpt_path": "/home/liu0003/Desktop/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_layernorm_peak_small_batch_6_datasets_42__2024-08-03-21h-32m-39s/checkpoints/epoch=20-step=552048.ckpt",
+    "pretrained_ckpt_path": "/home/liu0003/Desktop/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_layernorm_peak_small_batch_6_datasets_42__2024-08-03-21h-32m-39s/checkpoints/last.ckpt",
     "classifier_proj_size": 256,
     "use_weighted_layer_sum": true,
-    "dropout_rate": 0.2
+    "dropout_rate": 0.2,
+    "freeze_base_model": false,
+    "freeze_feature_encoder": true,
+    "head_type": "mlp",
+    "pool_type": "mean",
+    "concat_downsampled_input": true
   }
 }
