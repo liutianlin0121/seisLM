@@ -168,16 +168,10 @@ if __name__ == "__main__":
     for num_classes in [4]:
       config.model_args.num_classes = num_classes
 
-      for freeze_feature_encoder in [True, False]:
-        config.model_args.freeze_feature_encoder = freeze_feature_encoder
+      # for pool_type in ['quantile', 'mean', 'mean_std']:
+      #   config.model_args.pool_type = pool_type
 
-        for use_weighted_layer_sum in [True, False]:
-          config.model_args.use_weighted_layer_sum = use_weighted_layer_sum
-
-          for concat_downsampled_input in [True, False]:
-            config.model_args.concat_downsampled_input = concat_downsampled_input
-
-            train_foreshock_aftershock(config, task_name, args.save_checkpoints)
+      train_foreshock_aftershock(config, task_name, args.save_checkpoints)
 
   except Exception as e:
     traceback.print_exc()

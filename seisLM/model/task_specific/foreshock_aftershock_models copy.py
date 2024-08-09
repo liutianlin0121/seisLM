@@ -106,7 +106,7 @@ class Conv1DShockClassifier(nn.Module):
 
     # Compute the weighted sum of the feature maps
     cam = torch.einsum("bo,bow->bw", fc_weights, conv_features)
-    cam = torch.nn.functional.relu(cam)
+    # cam = torch.nn.functional.relu(cam)
 
     if interp:
       original_length = x.size(2)
@@ -141,41 +141,84 @@ class MeanStdStatPool1D(nn.Module):
     return torch.cat(torch.std_mean(tensor, self.dim_to_reduce), 1)
 
 
+class QuantilePool1D(nn.Module):
+  def __init__(self, dim_to_reduce: int = 2):
+    super().__init__()
+    self.dim_to_reduce = dim_to_reduce
+    self.quantiles = torch.Tensor([0, 0.25, 0.5, 0.75, 1]).detach()
+
+  def forward(self, tensor: torch.Tensor):
+    # input shape [BATCH, TIME, FEATURE]
+    quantile_tensor = torch.quantile(
+        tensor, self.quantiles.to(tensor.device), dim=self.dim_to_reduce
+    )  # quantile has shape [5, BATCH, FEATURE]
+
+    # transform to expected shape [BATCH, FEATURE]
+    quantile_tensor = torch.transpose(quantile_tensor, 0, 1)
+    quantile_tensor = torch.flatten(quantile_tensor, start_dim=1, end_dim=2)
+
+    return quantile_tensor
+
 
 class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
   def __init__(self, config: ml_collections.ConfigDict):
     super().__init__(config)
 
+    # self.seisLM_strength = nn.Parameter(torch.tensor(0.0))
+
+    # conv_config = ml_collections.ConfigDict({
+    #   'in_channels': 3,
+    #   'num_classes': config.num_classes,
+    #   'num_layers': 3,
+    #   'initial_filters': 32,
+    #   'kernel_size': 3,
+    #   'dropout_rate': config.dropout_rate,
+    # })
+    # self.skip_head = nn.Sequential(
+    #   Conv1DShockClassifier(conv_config)
+    # )
+
     # assume the input to pooling is
     # of shape [batch_size, channel_size, seq_len]
-    if config.pool_type == "mean":
-      pool = Reduce('b c l-> b c', reduction='mean')
-      pool_out_dim = (
-        config.hidden_size + 3 if config.concat_downsampled_input else config.hidden_size
-      )
+    # if config.pool_type == "mean":
+    #   pool = Reduce('b c l-> b c', reduction='mean')
+    #   pool_out_dim = config.hidden_size
 
-    elif config.pool_type == "mean_std":
-      pool = MeanStdStatPool1D(dim_to_reduce=2)
-      pool_out_dim = 2 * (
-        config.hidden_size + 3 if config.concat_downsampled_input else config.hidden_size
-      )
+    # elif config.pool_type == "mean_std":
+    #   pool = MeanStdStatPool1D(dim_to_reduce=2)
+    #   pool_out_dim = 2 * config.hidden_size
 
-    else:
-      raise ValueError(f"Pooling type {config.pool_type} not recognized.")
+    # else:
+    #   raise ValueError(f"Pooling type {config.pool_type} not recognized.")
 
-    if config.head_type == "mlp":
-      self.head = nn.Sequential(
-        Rearrange('b l c -> b c l'),
-        pool,
-        nn.Linear(pool_out_dim, config.classifier_proj_size, bias=False),
-        nn.BatchNorm1d(config.classifier_proj_size),
-        nn.GELU(),
-        nn.Dropout(config.dropout_rate),
-        nn.Linear(config.classifier_proj_size, config.num_classes)
-      )
+    # if config.concat_downsampled_input:
+    #   pool_out_dim += 3
 
-    else:
-      raise ValueError(f"Head type {config.head_type} not recognized.")
+    # if config.head_type == "mlp":
+    #   self.head = nn.Sequential(
+    #     Rearrange('b l c -> b c l'),
+    #     pool,
+    #     nn.Linear(pool_out_dim, config.classifier_proj_size, bias=False),
+    #     nn.BatchNorm1d(config.classifier_proj_size),
+    #     nn.GELU(),
+    #     nn.Dropout(config.dropout_rate),
+    #     nn.Linear(config.classifier_proj_size, config.num_classes)
+    #   )
+
+    # else:
+    #   raise ValueError(f"Head type {config.head_type} not recognized.")
+
+
+    pool_out_dim = config.hidden_size + 15
+    self.mlp = nn.Sequential(
+      nn.Linear(pool_out_dim, config.classifier_proj_size, bias=False),
+      nn.BatchNorm1d(config.classifier_proj_size),
+      nn.GELU(),
+      nn.Dropout(config.dropout_rate),
+      nn.Linear(config.classifier_proj_size, config.num_classes)
+    )
+
+    self.pooler = QuantilePool1D(dim_to_reduce=2)
 
   def forward(self, input_values: torch.Tensor,) -> Tensor:
     """The forward pass of the sequence classification model.
@@ -186,10 +229,41 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
     Returns:
       logits: The classification logits.
     """
-    hidden_states = self.get_wav2vec2_hidden_states(
-      input_values, concat_downsampled_input=self.config.concat_downsampled_input
+
+    ## TODO: temp fix.
+
+    input_values_amp_norm_std = input_values / (
+      torch.std(input_values, dim=-1, keepdim=True) + 1e-10
     )
-    logits = self.head(hidden_states)
+
+    input_values_amp_peak_norm = input_values / (
+      torch.max(torch.abs(input_values), dim=-1, keepdim=True).values + 1e-10
+    )
+
+    hidden_states = self.get_wav2vec2_hidden_states(
+      input_values_amp_peak_norm,
+      concat_downsampled_input=self.config.concat_downsampled_input
+    )
+
+    pooled_hidden_states = einops.reduce(
+      hidden_states, 'b l c-> b c', reduction='mean')
+
+    # print(f'Hidden states shape: {hidden_states.shape}')
+
+    pooled_input_values = self.pooler(input_values_amp_norm_std)
+    # pooled_input_values = torch.cat(
+    #   torch.std_mean(input_values_amp_norm_std, 2), 1)
+
+    # print(f'Pooled input values shape: {pooled_input_values.shape}')
+
+    pooled = torch.cat(
+      [pooled_hidden_states, pooled_input_values], 1
+    )
+    # print(f'Pooled shape: {pooled.shape}')
+    # logits = self.head(hidden_states)
+
+
+    logits = self.mlp(pooled)
     return logits
 
 

@@ -19,7 +19,7 @@
     "strategy": "ddp",
     "accelerator": "gpu",
     "max_epochs": 10,
-    "warmup_frac_step": 0.4,
+    "warmup_frac_step": 0.0,
     "optimizer": "adamw",
     "unfreeze_base_at_epoch": 0,
     "optimizer_args":
@@ -34,9 +34,9 @@
     "use_weighted_layer_sum": true,
     "dropout_rate": 0.2,
     "freeze_base_model": false,
-    "freeze_feature_encoder": true,
+    "freeze_feature_encoder": false,
     "head_type": "mlp",
     "pool_type": "mean",
-    "concat_downsampled_input": true
+    "concat_downsampled_input": false
   }
 }
