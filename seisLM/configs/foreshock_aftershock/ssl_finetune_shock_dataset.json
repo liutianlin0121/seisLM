@@ -1,0 +1,31 @@
+{
+  "seed": 42,
+  "pretrained_ckpt_path": "/home/liu0003/Desktop/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_layernorm_std_small_batch_4_datasets_less_regularized_42__2024-08-07-16h-54m-15s/checkpoints/epoch=24-step=437425.ckpt",
+  "training_config": {
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.999,
+    "adam_epsilon": 1e-08,
+    "accelerator": "ddp",
+    "devices": 2,
+    "max_epochs": 100,
+    "precision": "16-mixed",
+    "learning_rate": 2e-4,
+    "log_every_n_steps": 50,
+    "mask_time_length": 10,
+    "mask_time_prob": 0.65,
+    "max_gumbel_temperature": 2.0,
+    "min_gumbel_temperature": 0.5,
+    "warmup_frac_step": 0.2,
+    "weight_decay": 0.0
+  },
+  "data_config": {
+    "data_name": ["shock"],
+    "training_fraction": 1.0,
+    "local_batch_size": 8,
+    "demean": true,
+    "amp_norm": true,
+    "amp_norm_type": "std",
+    "prefetch_factor": 2,
+    "cache_dataset": null
+  }
+}

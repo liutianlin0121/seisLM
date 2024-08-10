@@ -38,7 +38,22 @@ def train_self_supervised(
   """
 
   seed_everything(config.seed)
-  model = LitMultiDimWav2Vec2(config)
+
+  if config.pretrained_ckpt_path:
+    model = LitMultiDimWav2Vec2.load_from_checkpoint(
+      config.pretrained_ckpt_path
+    )
+
+    # load from a pretrained model; the use case here is to finetune
+    # on the features of a downstream dataset
+    # The only downstream task we consider for now is the
+    # shock-classification dataset.
+    print(f"Loaded model from {config.pretrained_ckpt_path}")
+    assert config.data_config.data_name == ['shock']
+    config.model_config = model.config.model_config
+
+  else:
+    model = LitMultiDimWav2Vec2(config)
 
 
   data_collator = \
@@ -120,7 +135,6 @@ def train_self_supervised(
   )
 
 if __name__ == '__main__':
-  # TODO: Try the following settings:
   # Enable flash attention
   torch.backends.cuda.enable_flash_sdp(True)
   # Set cuDNN backend flags
@@ -153,7 +167,11 @@ if __name__ == '__main__':
     project_name = "test_pretrained_seisLM"
   else:
     config.training_config.detect_anomaly = False
-    project_name = "pretrained_seisLM"
+    if config.data_config.data_name == ['shock']:
+      project_name = "ssl_finetune_shock_seisLM"
+      run_name_prefix = "ssl_finetune_shock_seisLM"
+    else:
+      project_name = "pretrained_seisLM"
 
   try:
     train_self_supervised(

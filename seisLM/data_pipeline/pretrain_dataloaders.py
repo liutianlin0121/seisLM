@@ -33,9 +33,32 @@ def prepare_pretrain_dataloaders(
   """
   Returns the training and validation data loaders
   """
+
+  norm = model.get_val_augmentations()[-1]
+  assert isinstance(norm, Normalize)
+
+  shock_loaders = prepare_foreshock_aftershock_dataloaders(
+    num_classes=4, # doesn't matter for self-supervised learning
+    batch_size=batch_size,
+    component_order=component_order,
+    event_split_method='temporal',
+    demean_axis=norm.demean_axis,
+    amp_norm_axis=norm.amp_norm_axis,
+    amp_norm_type=norm.amp_norm_type,
+    collator=collator,
+  )
+
+
   if isinstance(data_names, str):
     data_names = [data_names]
 
+
+  # If shock is in the data_names, return only the shock loaders
+  if "shock" in data_names:
+    assert len(data_names) == 1, "`shock` should be the only data_name"
+    return shock_loaders['train'], {'shock': shock_loaders['val']}
+
+  # If shock is not in the data_names, return the seisbench dataloaders
   multi_waveform_datasets = []
   dev_generators = {}
   for data_name in data_names:
@@ -96,19 +119,6 @@ def prepare_pretrain_dataloaders(
   )
 
 
-  norm = model.get_val_augmentations()[-1]
-  assert isinstance(norm, Normalize)
-
-  shock_loaders = prepare_foreshock_aftershock_dataloaders(
-    num_classes=4, # doesn't matter
-    batch_size=batch_size,
-    component_order=component_order,
-    event_split_method='temporal',
-    demean_axis=norm.demean_axis,
-    amp_norm_axis=norm.amp_norm_axis,
-    amp_norm_type=norm.amp_norm_type,
-    collator=collator,
-  )
 
   dev_loaders['shock'] = shock_loaders['val']
   return train_loader, dev_loaders
