@@ -144,12 +144,12 @@ class PhaseNetLit(SeisBenchModuleLit):
 
   def training_step(self, batch, batch_idx):
     loss = self.shared_step(batch)
-    self.log("train_loss", loss)
+    self.log("train/loss", loss)
     return loss
 
   def validation_step(self, batch, batch_idx):
     loss = self.shared_step(batch)
-    self.log("val_loss", loss, sync_dist=True)
+    self.log("val/loss", loss, sync_dist=True)
     return loss
 
   def configure_optimizers(self):

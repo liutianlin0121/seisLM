@@ -1,8 +1,10 @@
 {
-  "model": "PhaseNet",
-  "data": "ETHZ",
-  "prefetch_factor": 1,
-  "num_workers": 8,
+  "model_name": "PhaseNet",
+  "data_args": {
+    "batch_size": 32,
+    "data_name": "ETHZ",
+    "prefetch_factor": 1
+  },
   "trainer_args": {
     "devices": 2,
     "strategy": "ddp",

@@ -5,6 +5,7 @@ Adapted from:
 
 Example usage:
 python src/phasepick_run.py --config /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_seisLM.json
+python phasepick_run.py --config /home/liu0003/Desktop/projects/seisLM/seisLM/configs/phasepick/ethz_phasenet.json --save_checkpoints
 
 """
 import argparse
@@ -14,6 +15,7 @@ import json
 import time
 import ml_collections
 import torch
+import wandb
 import lightning as L
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
@@ -28,7 +30,7 @@ from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 def train_phasepick(
   config: ml_collections.ConfigDict,
   task_name: str,
-  save_checkpoint: bool = False,
+  save_checkpoints: bool = False,
   ) -> None:
   """
   Runs the model training defined by the config.
@@ -100,7 +102,7 @@ def train_phasepick(
   logger.log_hyperparams(model.hparams)
   logger.log_hyperparams(config)
 
-  if save_checkpoint:
+  if save_checkpoints:
     checkpoint_callback = ModelCheckpoint(
         monitor="val/loss",
         save_top_k=1,
@@ -128,7 +130,7 @@ def train_phasepick(
   )
 
   trainer.fit(model, train_loader, dev_loader)
-
+  wandb.finish()
 
 if __name__ == "__main__":
   torch.backends.cudnn.benchmark = True
@@ -151,9 +153,15 @@ if __name__ == "__main__":
   config = ml_collections.ConfigDict(config)
   task_name = os.path.basename(__file__)[: -len(".py")]
 
-  try:
-    train_phasepick(config, task_name)
-  except Exception as e:
-    traceback.print_exc()
-  finally:
-    shutdown_cleanup_thread.start()
+  for data_name in ['ETHZ', 'INSTANCE', 'GEOFON']:
+    config.data_args.data_name = data_name
+    for training_fraction in [0.1, 0.3, 0.5, 1.0]:
+      config.data_args.training_fraction = training_fraction
+
+      train_phasepick(config, task_name, args.save_checkpoints)
+      # try:
+      #   train_phasepick(config, task_name)
+      # except Exception as e:
+      #   traceback.print_exc()
+      # finally:
+      #   shutdown_cleanup_thread.start()
