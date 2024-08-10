@@ -7,12 +7,13 @@ Which picker fits my data? A quantitative evaluation of deep learning based
 seismic pickers. Journal of Geophysical Research: Solid Earth, 127.
 https://doi.org/10.1029/2021JB023499
 
-Taken from:
+Modified from:
 https://github.com/seisbench/pick-benchmark/blob/main/benchmark/models.py
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Union, Any
+from typing import Optional, Tuple, Any, Dict
+import math
 
 import ml_collections
 import einops
@@ -23,7 +24,7 @@ import seisbench.models as sbm
 import torch
 from torch import Tensor
 import torch.nn as nn
-from transformers.modeling_outputs import TokenClassifierOutput
+from torch.optim.lr_scheduler import LambdaLR
 
 from seisLM.model.foundation import initialization
 from seisLM.model.foundation import pretrained_models
@@ -91,7 +92,12 @@ class SeisBenchModuleLit(L.LightningModule, ABC):
     """
 
   @abstractmethod
-  def predict_step(self, batch, batch_idx=None, dataloader_idx=None) -> Tuple:
+  def predict_step(
+    self,
+    batch: Any,
+    batch_idx: Optional[int] = None,
+    dataloader_idx: Optional[int] = None
+    ) -> Tuple:
     """
     Predict step for the lightning module. Returns results for three tasks:
 
@@ -112,51 +118,50 @@ class SeisBenchModuleLit(L.LightningModule, ABC):
     return score_detection, score_p_or_s, p_sample, s_sample
 
 
-class PhaseNetLit(SeisBenchModuleLit):
+class BasePhaseNetLikeLit(SeisBenchModuleLit):
   """
-  LightningModule for PhaseNet
-
-  :param lr: Learning rate, defaults to 1e-2
-  :param sigma: Standard deviation passed to the ProbabilisticPickLabeller
-  :param sample_boundaries: Low and high boundaries for the
-      RandomWindow selection.
-  :param kwargs: Kwargs are passed to the SeisBench.models.PhaseNet constructor.
+  LightningModule for PhaseNet-like models
   """
+  def __init__(
+    self,
+    model_config: ml_collections.ConfigDict,
+    training_config: ml_collections.ConfigDict,
+  ):
 
-  def __init__(self, lr=1e-2, sigma=20, sample_boundaries=(None, None),
-               **kwargs):
     super().__init__()
     self.save_hyperparameters()
-    self.lr = lr
-    self.sigma = sigma
-    self.sample_boundaries = sample_boundaries
+    self.model_config = model_config
+    self.training_config = training_config
     self.loss = vector_cross_entropy
-    self.model = sbm.PhaseNet(**kwargs)
+    self.model = nn.Identity() # dummy model
 
-  def forward(self, x):
+  def forward(self, x: Tensor) -> Any:
     return self.model(x)
 
-  def shared_step(self, batch):
+  def shared_step(self, batch: Dict) -> Tensor:
     x = batch["X"]
     y_true = batch["y"]
     y_pred = self.model(x)
     return self.loss(y_pred, y_true)
 
-  def training_step(self, batch, batch_idx):
+  def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
     loss = self.shared_step(batch)
     self.log("train/loss", loss)
     return loss
 
-  def validation_step(self, batch, batch_idx):
+  def validation_step(self, batch: Dict, batch_idx: int) -> Tensor:
     loss = self.shared_step(batch)
     self.log("val/loss", loss, sync_dist=True)
     return loss
 
-  def configure_optimizers(self):
-    optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+  def configure_optimizers(self): # type: ignore
+    optimizer = torch.optim.Adam(
+      self.parameters(),
+      **self.training_config.optimizer_args
+    )
     return optimizer
 
-  def get_augmentations(self):
+  def get_augmentations(self): # type: ignore
     return [
         # In 2/3 of the cases, select windows around picks, to reduce amount
         # of noise traces in training. Uses strategy variable, as padding will
@@ -176,26 +181,34 @@ class PhaseNetLit(SeisBenchModuleLit):
             probabilities=[2, 1],
         ),
         sbg.RandomWindow(
-            low=self.sample_boundaries[0],
-            high=self.sample_boundaries[1],
+            low=self.model_config.sample_boundaries[0],
+            high=self.model_config.sample_boundaries[1],
             windowlen=3001,
             strategy="pad",
         ),
         sbg.ChangeDtype(np.float32),
         sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
         sbg.ProbabilisticLabeller(
-            label_columns=phase_dict, sigma=self.sigma, dim=0
+            label_columns=phase_dict,
+            sigma=self.model_config.sigma,
+            dim=0
         ),
     ]
 
-  def get_eval_augmentations(self):
+  def get_eval_augmentations(self): # type: ignore
     return [
         sbg.SteeredWindow(windowlen=3001, strategy="pad"),
         sbg.ChangeDtype(np.float32),
         sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
     ]
 
-  def predict_step(self, batch, batch_idx=None, dataloader_idx=None):
+  def predict_step(
+    self,
+    batch: Dict,
+    batch_idx: Optional[int] = None,
+    dataloader_idx: Optional[int] = None
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+
     x = batch["X"]
     window_borders = batch["window_borders"]
 
@@ -203,8 +216,8 @@ class PhaseNetLit(SeisBenchModuleLit):
 
     score_detection = torch.zeros(pred.shape[0])
     score_p_or_s = torch.zeros(pred.shape[0])
-    p_sample = torch.zeros(pred.shape[0], dtype=int)
-    s_sample = torch.zeros(pred.shape[0], dtype=int)
+    p_sample = torch.zeros(pred.shape[0], dtype=int) # type: ignore
+    s_sample = torch.zeros(pred.shape[0], dtype=int) # type: ignore
 
     for i in range(pred.shape[0]):
       start_sample, end_sample = window_borders[i]
@@ -219,6 +232,21 @@ class PhaseNetLit(SeisBenchModuleLit):
       s_sample[i] = torch.argmax(local_pred[1])
 
     return score_detection, score_p_or_s, p_sample, s_sample
+
+
+class PhaseNetLit(BasePhaseNetLikeLit):
+  """
+  LightningModule for PhaseNet
+  """
+  def __init__(
+    self,
+    model_config: ml_collections.ConfigDict,
+    training_config: ml_collections.ConfigDict,
+  ):
+
+    super().__init__(model_config, training_config)
+    self.save_hyperparameters()
+    self.model = sbm.PhaseNet(**model_config.kwargs)
 
 
 class MultiDimWav2Vec2ForFrameClassification(
@@ -239,8 +267,8 @@ class MultiDimWav2Vec2ForFrameClassification(
 
   def forward(
       self,
-      input_values: Optional[torch.Tensor],
-  ) -> Union[Tuple, TokenClassifierOutput]:
+      input_values: Optional[Tensor],
+  ) -> Tensor:
     """The forward pass of the frame classification model."""
 
     hidden_states = self.get_wav2vec2_hidden_states(input_values)
@@ -273,45 +301,89 @@ class MultiDimWav2Vec2ForFrameClassification(
     return torch.nn.functional.softmax(logits, dim=1)
 
 
-class MultiDimWav2Vec2ForFrameClassificationLit(PhaseNetLit):
+class MultiDimWav2Vec2ForFrameClassificationLit(BasePhaseNetLikeLit):
   """
   LightningModule for MultiDimWav2Vec2ForFrameClassification
 
-  Attributes:
-   model_name_or_path: pretrained model name or path, from which we load the
-    checkpoint
-   lr: Learning rate, defaults to 1e-2
-   sigma: Standard deviation passed to the ProbabilisticPickLabeller
-   sample_boundaries: Low and high boundaries for the RandomWindow selection.
-   num_labels: Number of labels for the classification task.
   """
 
-  def __init__(self, model_name_or_path, lr=1e-2, sigma=20, use_weighted_layer_sum=False,
-              sample_boundaries=(None, None), num_labels=3, **kwargs):
-    super().__init__(
-        lr=lr, sigma=sigma, sample_boundaries=sample_boundaries, **kwargs
-    )
+  def __init__(
+    self,
+    model_config: ml_collections.ConfigDict,
+    training_config: ml_collections.ConfigDict
+    ):
+    super().__init__(model_config, training_config)
     self.save_hyperparameters()
-    self.model_name_or_path = model_name_or_path
-    pretrained_model = pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
-        model_name_or_path
-    ).model
 
-    model_config = pretrained_model.config
-    model_config.num_labels = num_labels
-    model_config.use_weighted_layer_sum = use_weighted_layer_sum
+    pretrained_model = (
+        pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
+          model_config.pretrained_ckpt_path
+      ).model
+    )
 
+    new_config = pretrained_model.config
+    for key, value in model_config.items():
+      setattr(new_config, key, value)
+
+    model_config = new_config
     self.model = MultiDimWav2Vec2ForFrameClassification(model_config)
 
     self.model.wav2vec2.load_state_dict(
         pretrained_model.wav2vec2.state_dict()
     )
-    # self.model.freeze_feature_extractor()
-    self.model.freeze_feature_encoder()
 
-  def configure_optimizers(self):
-    optimizer = torch.optim.Adam(
-        filter(lambda p: p.requires_grad, self.parameters()),
-        lr=self.lr
+    if model_config.freeze_feature_encoder:
+      self.model.freeze_feature_encoder()
+
+    if model_config.freeze_base_model:
+      self.model.freeze_base_model()
+
+    if model_config.freeze_base_model and (
+      not model_config.freeze_feature_encoder):
+      raise ValueError(
+        "It's unconventional to freeze the base model" \
+        "without freezing the feature encoder.")
+
+    del pretrained_model
+    self.model_config = model_config
+
+  def configure_optimizers(self): # type: ignore
+
+    if self.training_config.optimizer == "adamw":
+      optimizer = torch.optim.AdamW(
+          filter(lambda p: p.requires_grad, self.parameters()),
+          **self.training_config.optimizer_args
+      )
+    elif self.training_config.optimizer == "sgd":
+      optimizer = torch.optim.SGD(
+          filter(lambda p: p.requires_grad, self.parameters()),
+          **self.training_config.optimizer_args
+      )
+    else:
+      raise ValueError(
+          f"Optimizer {self.training_config.optimizer} not recognized."
+      )
+    t_max = int(
+      self.training_config.max_train_steps // self.trainer.num_devices
     )
-    return optimizer
+    t_warmup = int((self.training_config.warmup_frac_step * (
+      self.training_config.max_train_steps)) // self.trainer.num_devices
+    )
+
+    # Linear warmup and half-cycle cosine decay
+    def lr_lambda(step: int): # type: ignore
+      if step < t_warmup:
+        # Linear warm-up
+        return step / t_warmup
+      else:
+        # Cosine annealing over remaining steps
+        return 0.5 * (
+          1 + np.cos((step - t_warmup) * math.pi / (t_max - t_warmup))
+        )
+
+    sched_config = {
+        'scheduler': LambdaLR(optimizer, lr_lambda),
+        'interval': "step",
+        'frequency': 1,
+    }
+    return {"optimizer": optimizer, "lr_scheduler": sched_config}

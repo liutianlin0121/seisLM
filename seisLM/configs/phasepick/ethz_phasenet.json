@@ -5,14 +5,20 @@
     "data_name": "ETHZ",
     "prefetch_factor": 1
   },
-  "trainer_args": {
+  "training_args": {
     "devices": 2,
     "strategy": "ddp",
     "accelerator": "gpu",
-    "max_epochs": 100
+    "max_epochs": 100,
+    "optimizer_args":
+      {
+        "lr": 1e-3,
+        "weight_decay": 0.0
+      }
   },
   "model_args": {
     "sample_boundaries": [null, null],
-    "lr": 1e-3
+    "sigma": 20,
+    "kwargs": {}
   }
 }

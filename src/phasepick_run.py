@@ -9,7 +9,6 @@ python phasepick_run.py --config /home/liu0003/Desktop/projects/seisLM/seisLM/co
 
 """
 import argparse
-import traceback
 import os
 import json
 import time
@@ -17,14 +16,13 @@ import ml_collections
 import torch
 import wandb
 import lightning as L
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 
 from lightning.pytorch import seed_everything
 from seisLM.data_pipeline import seisbench_dataloaders as dataloaders
 from seisLM.model.task_specific import phasepick_models
 from seisLM.utils import project_path
-from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
 
 def train_phasepick(
@@ -56,19 +54,21 @@ def train_phasepick(
   training_fraction = config.data_args.get("training_fraction", 1.0)
 
   model = phasepick_models.__getattribute__(model_name + "Lit")(
-      **config.get("model_args", {})
+    config.model_args, config.training_args
   )
 
   train_loader, dev_loader = dataloaders.prepare_seisbench_dataloaders(
       model=model,
       data_names=data_name,
       batch_size=config.data_args.batch_size,
-      num_workers=config.get("num_workers", 8),
+      num_workers=config.data_args.get("num_workers", 8),
       training_fraction=training_fraction,
       cache=config.get("cache", None),
       prefetch_factor=config.get("prefetch_factor", 2),
   )
 
+  max_train_steps = config.training_args.max_epochs * len(train_loader)
+  config.training_args.max_train_steps = max_train_steps
 
 
   formatted_time = time.strftime(
@@ -102,6 +102,9 @@ def train_phasepick(
   logger.log_hyperparams(model.hparams)
   logger.log_hyperparams(config)
 
+  lr_monitor = LearningRateMonitor(logging_interval='step')
+  callbacks = [lr_monitor]
+
   if save_checkpoints:
     checkpoint_callback = ModelCheckpoint(
         monitor="val/loss",
@@ -110,23 +113,30 @@ def train_phasepick(
         mode='min',
         filename="{epoch}-{step}",
     )
-    callbacks = [checkpoint_callback]
+    callbacks.append(checkpoint_callback)
     enable_checkpointing = True
   else:
-    callbacks = None
     enable_checkpointing = False
     print('Checkpoints will not be saved.')
 
-  # TODO: Add the option to freeze transformer layers for several epochs.
+
+  log_every_n_steps = max(
+      1,
+      min(50, int(len(train_loader) / config.training_args.devices))
+  )
 
   # Training loop
   trainer = L.Trainer(
       profiler="simple",
+      log_every_n_steps=log_every_n_steps,
       default_root_dir=project_path.MODEL_SAVE_DIR,
       logger=logger,
       callbacks=callbacks,
       enable_checkpointing=enable_checkpointing,
-      **config.get("trainer_args", {}),
+      devices=config.training_args.devices,
+      strategy=config.training_args.strategy,
+      accelerator=config.training_args.accelerator,
+      max_epochs=config.training_args.max_epochs
   )
 
   trainer.fit(model, train_loader, dev_loader)
@@ -159,9 +169,3 @@ if __name__ == "__main__":
       config.data_args.training_fraction = training_fraction
 
       train_phasepick(config, task_name, args.save_checkpoints)
-      # try:
-      #   train_phasepick(config, task_name)
-      # except Exception as e:
-      #   traceback.print_exc()
-      # finally:
-      #   shutdown_cleanup_thread.start()
