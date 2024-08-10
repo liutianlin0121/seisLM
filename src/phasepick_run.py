@@ -9,6 +9,7 @@ python phasepick_run.py --config /home/liu0003/Desktop/projects/seisLM/seisLM/co
 
 """
 import argparse
+import traceback
 import os
 import json
 import time
@@ -22,6 +23,7 @@ from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch import seed_everything
 from seisLM.data_pipeline import seisbench_dataloaders as dataloaders
 from seisLM.model.task_specific import phasepick_models
+from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 from seisLM.utils import project_path
 
 
@@ -29,6 +31,7 @@ def train_phasepick(
   config: ml_collections.ConfigDict,
   task_name: str,
   save_checkpoints: bool = False,
+  run_name_prefix: str = "",
   ) -> None:
   """
   Runs the model training defined by the config.
@@ -82,7 +85,7 @@ def train_phasepick(
       # Groups related experiments together
       project=task_name,
       # Describes a specific experiment within the project
-      name=run_name,
+      name=f"{run_name_prefix}_{run_name}",
       # Filter runs based on keywords or categories.
       tags=[
         f"data_{data_name}",
@@ -90,7 +93,7 @@ def train_phasepick(
         f"train_frac_{training_fraction}"
       ],
       # A unique identifier for the run
-      id=run_name,
+      id=f"{run_name_prefix}_{run_name}",
       save_code=True,
       save_dir=project_path.MODEL_SAVE_DIR,
   )
@@ -148,7 +151,7 @@ if __name__ == "__main__":
   torch.set_float32_matmul_precision('high')
 
   parser = argparse.ArgumentParser()
-  parser.add_argument("--config", type=str, required=True)
+  parser.add_argument("--config_path", type=str, required=True)
   parser.add_argument(
       "--save_checkpoints", action="store_true",
       help="Run in test mode for profiling purposes"
@@ -157,15 +160,32 @@ if __name__ == "__main__":
   args = parser.parse_args()
 
 
-  with open(args.config, "r", encoding="utf-8") as f:
+  with open(args.config_path, "r", encoding="utf-8") as f:
     config = json.load(f)
 
   config = ml_collections.ConfigDict(config)
   task_name = os.path.basename(__file__)[: -len(".py")]
+  run_name_prefix = args.config_path.split("/")[-1].split(".")[0]
 
-  for data_name in ['ETHZ', 'INSTANCE', 'GEOFON']:
-    config.data_args.data_name = data_name
-    for training_fraction in [0.1, 0.3, 0.5, 1.0]:
-      config.data_args.training_fraction = training_fraction
+  try:
+    for data_name in ['GEOFON', 'ETHZ']:
+      config.data_args.data_name = data_name
+      if data_name == 'INSTANCE':
+        # See:
+        # https://github.com/seisbench/pick-benchmark/blob/main/configs/instance_phasenet.json
+        config.model_args.sample_boundaries = [-1000, None]
 
-      train_phasepick(config, task_name, args.save_checkpoints)
+      for training_fraction in [0.1, 0.3, 0.5, 1.0]:
+        config.data_args.training_fraction = training_fraction
+
+        train_phasepick(
+          config=config,
+          task_name=task_name,
+          save_checkpoints=args.save_checkpoints,
+          run_name_prefix=run_name_prefix,
+        )
+
+  except Exception as e:
+    traceback.print_exc()
+  finally:
+    shutdown_cleanup_thread.start()
