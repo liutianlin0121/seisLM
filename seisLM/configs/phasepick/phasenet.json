@@ -9,7 +9,7 @@
     "devices": 2,
     "strategy": "ddp",
     "accelerator": "gpu",
-    "max_epochs": 100,
+    "max_epochs": 50,
     "optimizer_args":
       {
         "lr": 1e-3,

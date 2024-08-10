@@ -10,12 +10,13 @@ python phasepick_run.py --config /home/liu0003/Desktop/projects/seisLM/seisLM/co
 """
 import argparse
 import traceback
+import psutil
+
 import os
 import json
 import time
 import ml_collections
 import torch
-import wandb
 import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
@@ -25,6 +26,8 @@ from seisLM.data_pipeline import seisbench_dataloaders as dataloaders
 from seisLM.model.task_specific import phasepick_models
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 from seisLM.utils import project_path
+
+
 
 
 def train_phasepick(
@@ -143,7 +146,7 @@ def train_phasepick(
   )
 
   trainer.fit(model, train_loader, dev_loader)
-  wandb.finish()
+  # wandb.finish()
 
 if __name__ == "__main__":
   torch.backends.cudnn.benchmark = True
@@ -152,6 +155,15 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
   parser.add_argument("--config_path", type=str, required=True)
+
+  parser.add_argument(
+      "--data_name", type=str, required=True,
+      help="Name of the dataset to use"
+  )
+  parser.add_argument(
+      "--training_fraction", type=float, required=True,
+      help="Fraction of the training set to use"
+  )
   parser.add_argument(
       "--save_checkpoints", action="store_true",
       help="Run in test mode for profiling purposes"
@@ -167,23 +179,16 @@ if __name__ == "__main__":
   task_name = os.path.basename(__file__)[: -len(".py")]
   run_name_prefix = args.config_path.split("/")[-1].split(".")[0]
 
+  config.data_args.data_name = args.data_name
+  config.data_args.training_fraction = args.training_fraction
+
   try:
-    for data_name in ['GEOFON', 'ETHZ']:
-      config.data_args.data_name = data_name
-      if data_name == 'INSTANCE':
-        # See:
-        # https://github.com/seisbench/pick-benchmark/blob/main/configs/instance_phasenet.json
-        config.model_args.sample_boundaries = [-1000, None]
-
-      for training_fraction in [0.1, 0.3, 0.5, 1.0]:
-        config.data_args.training_fraction = training_fraction
-
-        train_phasepick(
-          config=config,
-          task_name=task_name,
-          save_checkpoints=args.save_checkpoints,
-          run_name_prefix=run_name_prefix,
-        )
+    train_phasepick(
+      config=config,
+      task_name=task_name,
+      save_checkpoints=args.save_checkpoints,
+      run_name_prefix=run_name_prefix,
+    )
 
   except Exception as e:
     traceback.print_exc()
