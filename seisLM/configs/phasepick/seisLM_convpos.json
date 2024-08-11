@@ -17,6 +17,7 @@
       }
   },
   "model_args": {
+    "apply_spec_augment": false,
     "sample_boundaries": [null, null],
     "sigma": 20,
     "num_labels": 3,

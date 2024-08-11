@@ -146,12 +146,12 @@ class BasePhaseNetLikeLit(SeisBenchModuleLit):
 
   def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
     loss = self.shared_step(batch)
-    self.log("train/loss", loss)
+    self.log("train/loss", loss, sync_dist=True, prog_bar=True, on_step=True)
     return loss
 
   def validation_step(self, batch: Dict, batch_idx: int) -> Tensor:
     loss = self.shared_step(batch)
-    self.log("val/loss", loss, sync_dist=True)
+    self.log("val/loss", loss, sync_dist=True, prog_bar=True)
     return loss
 
   def configure_optimizers(self): # type: ignore
@@ -327,6 +327,17 @@ class MultiDimWav2Vec2ForFrameClassificationLit(BasePhaseNetLikeLit):
 
     model_config = new_config
     self.model = MultiDimWav2Vec2ForFrameClassification(model_config)
+
+    if (not model_config.apply_spec_augment) or (
+      model_config.mask_time_prob == 0.0
+    ):
+      # in this case, we don't need the masked spec embed
+      # so we can remove it from both models.
+      if hasattr(pretrained_model.wav2vec2, "masked_spec_embed"):
+        del pretrained_model.wav2vec2.masked_spec_embed
+
+      if hasattr(self.model.wav2vec2, "masked_spec_embed"):
+        del self.model.wav2vec2.masked_spec_embed
 
     self.model.wav2vec2.load_state_dict(
         pretrained_model.wav2vec2.state_dict()

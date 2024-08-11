@@ -174,6 +174,15 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
         nn.Linear(config.classifier_proj_size, config.num_classes)
       )
 
+    elif config.head_type == "linear":
+      self.head = nn.Sequential(
+        Rearrange('b l c -> b c l'),
+        pool,
+        nn.BatchNorm1d(config.hidden_size),
+        nn.Dropout(config.dropout_rate),
+        nn.Linear(pool_out_dim, config.num_classes)
+      )
+
     else:
       raise ValueError(f"Head type {config.head_type} not recognized.")
 
@@ -349,6 +358,16 @@ class Wav2vec2ShockClassifierLit(BaseShockClassifierLit):
     model_config = new_config
     self.model = Wav2Vec2ForSequenceClassification(model_config)
 
+    if (not model_config.apply_spec_augment) or (
+      model_config.mask_time_prob == 0.0
+    ):
+      # in this case, we don't need the masked spec embed
+      # so we can remove it from both models.
+      if hasattr(pretrained_model.wav2vec2, "masked_spec_embed"):
+        del pretrained_model.wav2vec2.masked_spec_embed
+
+      if hasattr(self.model.wav2vec2, "masked_spec_embed"):
+        del self.model.wav2vec2.masked_spec_embed
 
     self.model.wav2vec2.load_state_dict(
         pretrained_model.wav2vec2.state_dict()

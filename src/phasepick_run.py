@@ -105,8 +105,8 @@ def train_phasepick(
   if slurm_job_id:
     logger.log_hyperparams({"slurm_job_id": slurm_job_id})
 
-  logger.log_hyperparams(model.hparams)
-  logger.log_hyperparams(config)
+  logger.log_hyperparams(config.to_dict())
+  logger.log_hyperparams(model.model_config.to_dict())
 
   lr_monitor = LearningRateMonitor(logging_interval='step')
   callbacks = [lr_monitor]
