@@ -47,7 +47,9 @@ class BaseMultiDimWav2Vec2ForDownstreamTasks(nn.Module, abc.ABC):
     num_layers = config.num_hidden_layers + 1
     if config.use_weighted_layer_sum:
       self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
-
+      self.lns = nn.ModuleList(
+        [nn.LayerNorm(config.hidden_size) for _ in range(num_layers)]
+      )
 
   def freeze_feature_encoder(self) -> None:
     """Disable the gradient computation for the feature encoder."""
@@ -81,6 +83,10 @@ class BaseMultiDimWav2Vec2ForDownstreamTasks(nn.Module, abc.ABC):
 
     if self.config.use_weighted_layer_sum:
       hidden_states = outputs.hidden_states
+      hidden_states = tuple(
+        ln(hidden_states[i]) for i, ln in enumerate(self.lns)
+      )
+
       # [B, num_layers, L, config.hidden_size]
       hidden_states = torch.stack(hidden_states, dim=1)
       norm_weights = nn.functional.softmax(self.layer_weights, dim=-1)
