@@ -9,10 +9,10 @@
     "accelerator": "gpu",
     "max_epochs": 50,
     "optimizer": "adamw",
-    "warmup_frac_step": 0.3,
+    "warmup_frac_step": 0.1,
     "optimizer_args":
       {
-        "lr": 1e-3,
+        "lr": 5e-4,
         "weight_decay": 0.5
       }
   },
