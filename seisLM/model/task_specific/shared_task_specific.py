@@ -4,10 +4,50 @@ import abc
 import einops
 import torch
 from torch import nn
+from torch import Tensor
 import ml_collections
 from lightning.pytorch.callbacks import BaseFinetuning
 from lightning.pytorch import LightningModule
 from seisLM.model.foundation.multidim_wav2vec2 import Wav2Vec2Model
+
+
+
+
+class DoubleConvBlock(nn.Module):
+  """Two conv layers with batchnorm and ReLU activation, like in a 1d U-Net."""
+  def __init__(
+    self,
+    *,
+    in_channels: int,
+    out_channels: int,
+    kernel_size: int,
+    dropout_rate: float,
+    padding: str = 'valid',
+    strides: list[int] = [1, 2]
+    ):
+    super(DoubleConvBlock, self).__init__()
+
+    conv_shared_kwargs = {
+      'kernel_size': kernel_size,
+      'out_channels': out_channels,
+      'padding': padding,
+      'bias': False, # Because batchnorm follows the conv layer.
+    }
+
+    self.double_conv = nn.Sequential(
+      nn.Conv1d(in_channels=in_channels, stride=strides[0], **conv_shared_kwargs),
+      nn.BatchNorm1d(out_channels),
+      nn.GELU(),
+      nn.Dropout(dropout_rate),
+      nn.Conv1d(in_channels=out_channels, stride=strides[1], **conv_shared_kwargs),
+      nn.BatchNorm1d(out_channels),
+      nn.GELU(),
+      nn.Dropout(dropout_rate),
+    )
+
+  def forward(self, x: Tensor) -> Tensor:
+    x = self.double_conv(x)
+    return x
 
 
 class BaseModelUnfreeze(BaseFinetuning):

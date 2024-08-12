@@ -29,7 +29,8 @@ from torch.optim.lr_scheduler import LambdaLR
 from seisLM.model.foundation import initialization
 from seisLM.model.foundation import pretrained_models
 from seisLM.model.task_specific.shared_task_specific import (
-  BaseMultiDimWav2Vec2ForDownstreamTasks)
+  BaseMultiDimWav2Vec2ForDownstreamTasks, DoubleConvBlock
+)
 from seisLM.utils.data_utils import phase_dict
 
 
@@ -265,6 +266,14 @@ class MultiDimWav2Vec2ForFrameClassification(
         config=config, module=module)
     )
     self.hidden_dropout = nn.Dropout(config.head_dropout_rate)
+    self.double_conv = DoubleConvBlock(
+      in_channels=config.hidden_size + config.input_dim,
+      out_channels=config.hidden_size + config.input_dim,
+      kernel_size=3,
+      dropout_rate=config.head_dropout_rate,
+      padding='same',
+      strides=[1, 1]
+    )
 
   def forward(
       self,
@@ -291,6 +300,11 @@ class MultiDimWav2Vec2ForFrameClassification(
     hidden_states = torch.cat(
       [hidden_states,
        einops.rearrange(input_values, 'b d l -> b l d')], dim=-1)
+
+
+    hidden_states = einops.rearrange(hidden_states, 'b l d -> b d l')
+    hidden_states = self.double_conv(hidden_states)
+    hidden_states = einops.rearrange(hidden_states, 'b d l -> b l d')
 
     hidden_states = self.hidden_dropout(hidden_states)
 
