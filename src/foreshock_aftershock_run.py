@@ -18,7 +18,9 @@ import lightning as L
 import torch
 import wandb
 from lightning.pytorch import seed_everything
-from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.callbacks import (
+  LearningRateMonitor, ModelCheckpoint, StochasticWeightAveraging
+)
 from lightning.pytorch.loggers import WandbLogger
 import ml_collections
 
@@ -111,6 +113,14 @@ def train_foreshock_aftershock(
     enable_checkpointing = False
     print('Checkpoints will not be saved.')
 
+  if hasattr(config.trainer_args, "swa_lrs"):
+    swa_callback = StochasticWeightAveraging(
+      swa_lrs=config.trainer_args.swa_lrs,
+      swa_epoch_start=0.5,
+      annealing_epochs=2
+    )
+    callbacks.append(swa_callback)
+
   if (config.model_name == "Wav2Vec2ForSequenceClassification" and
     config.trainer_args.unfreeze_base_at_epoch > 0):
     callbacks.append(
@@ -140,7 +150,7 @@ def train_foreshock_aftershock(
   trainer.fit(model, loaders['train'], loaders['test'])
   # trainer.test(ckpt_path="best", dataloaders=loaders['test'])
   trainer.test(ckpt_path="last", dataloaders=loaders['test'])
-  wandb.finish()
+  # wandb.finish()
 
 if __name__ == "__main__":
   torch.backends.cudnn.benchmark = True
@@ -160,18 +170,17 @@ if __name__ == "__main__":
   with open(args.config, "r", encoding="utf-8") as f:
     config = json.load(f)
   config = ml_collections.ConfigDict(config)
+  if hasattr(config.model_args, "layerdrop"):
+    config.trainer_args.strategy = "ddp_find_unused_parameters_true"
+
 
   task_name = os.path.basename(__file__)[: -len(".py")]
 
+  num_classes = 4
+  config.model_args.num_classes = num_classes
+
   try:
-    # for num_classes in [4, 9, 8, 2]:
-    for num_classes in [4]:
-      config.model_args.num_classes = num_classes
-
-      # for pool_type in ['quantile', 'mean', 'mean_std']:
-      #   config.model_args.pool_type = pool_type
-
-      train_foreshock_aftershock(config, task_name, args.save_checkpoints)
+    train_foreshock_aftershock(config, task_name, args.save_checkpoints)
 
   except Exception as e:
     traceback.print_exc()

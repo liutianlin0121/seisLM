@@ -170,7 +170,7 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
         nn.Linear(pool_out_dim, config.classifier_proj_size, bias=False),
         nn.BatchNorm1d(config.classifier_proj_size),
         nn.GELU(),
-        nn.Dropout(config.dropout_rate),
+        nn.Dropout(config.head_dropout_rate),
         nn.Linear(config.classifier_proj_size, config.num_classes)
       )
 
@@ -179,7 +179,7 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
         Rearrange('b l c -> b c l'),
         pool,
         nn.BatchNorm1d(config.hidden_size),
-        nn.Dropout(config.dropout_rate),
+        nn.Dropout(config.head_dropout_rate),
         nn.Linear(pool_out_dim, config.num_classes)
       )
 
