@@ -9,25 +9,25 @@ python phasepick_run.py --config /home/liu0003/Desktop/projects/seisLM/seisLM/co
 
 """
 import argparse
-import traceback
-import psutil
-
-import os
 import json
+import os
 import time
+import traceback
+
+import lightning as L
 import ml_collections
 import torch
-import lightning as L
-from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
-from lightning.pytorch.loggers import WandbLogger
 
 from lightning.pytorch import seed_everything
+from lightning.pytorch.callbacks import (
+  LearningRateMonitor, ModelCheckpoint
+)
+from lightning.pytorch.loggers import WandbLogger
+
 from seisLM.data_pipeline import seisbench_dataloaders as dataloaders
 from seisLM.model.task_specific import phasepick_models
-from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 from seisLM.utils import project_path
-
-
+from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 
 
 def train_phasepick(
@@ -54,6 +54,10 @@ def train_phasepick(
   """
   seed = config.get("seed", 42)
   seed_everything(seed)
+
+  if hasattr(config.model_args, "layerdrop"):
+    config.training_args.strategy = "ddp_find_unused_parameters_true"
+
 
   model_name = config.model_name
   data_name = config.data_args.data_name
@@ -91,9 +95,8 @@ def train_phasepick(
       name=f"{run_name_prefix}_{run_name}",
       # Filter runs based on keywords or categories.
       tags=[
-        f"data_{data_name}",
+        f"data_{data_name}_train_frac_{training_fraction}",
         f"model_{model_name}",
-        f"train_frac_{training_fraction}"
       ],
       # A unique identifier for the run
       id=f"{run_name_prefix}_{run_name}",

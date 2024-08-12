@@ -9,17 +9,23 @@
     "accelerator": "gpu",
     "max_epochs": 50,
     "optimizer": "adamw",
-    "warmup_frac_step": 0.0,
+    "warmup_frac_step": 0.3,
     "optimizer_args":
       {
-        "lr": 1e-4,
-        "weight_decay": 0.0
+        "lr": 1e-3,
+        "weight_decay": 0.5
       }
   },
   "model_args": {
-    "apply_spec_augment": false,
+    "apply_spec_augment": true,
+    "mask_time_prob": 0.0,
+    "mask_feature_prob": 0.2,
+    "mask_feature_length": 10,
     "sample_boundaries": [null, null],
     "sigma": 20,
+    "layerdrop": 0.1,
+    "wav2vec2_dropout_rate": 0.0,
+    "head_dropout_rate": 0.5,
     "num_labels": 3,
     "freeze_feature_encoder": false,
     "freeze_base_model": false,

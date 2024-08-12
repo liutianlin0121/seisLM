@@ -264,6 +264,7 @@ class MultiDimWav2Vec2ForFrameClassification(
       lambda module: initialization.init_wav2vec2_weights(
         config=config, module=module)
     )
+    self.hidden_dropout = nn.Dropout(config.head_dropout_rate)
 
   def forward(
       self,
@@ -290,6 +291,8 @@ class MultiDimWav2Vec2ForFrameClassification(
     hidden_states = torch.cat(
       [hidden_states,
        einops.rearrange(input_values, 'b d l -> b l d')], dim=-1)
+
+    hidden_states = self.hidden_dropout(hidden_states)
 
     # logits: [batch_size, seq_len, num_classes]
     logits = self.classifier(hidden_states)
@@ -324,6 +327,13 @@ class MultiDimWav2Vec2ForFrameClassificationLit(BasePhaseNetLikeLit):
     new_config = pretrained_model.config
     for key, value in model_config.items():
       setattr(new_config, key, value)
+
+    # for key, value in new_config.to_dict().items():
+    #   # if ('dropout' in key) and ('attention' not in key) and ('quantizer' not in key):
+    #   if 'dropout' in key:
+    #     new_value = model_config.wav2vec2_dropout_rate
+    #     print(f'Orig. {key} value: {value}. New value: {new_value}')
+    #     setattr(new_config, key, new_value)
 
     model_config = new_config
     self.model = MultiDimWav2Vec2ForFrameClassification(model_config)
