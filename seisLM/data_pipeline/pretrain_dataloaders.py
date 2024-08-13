@@ -26,6 +26,7 @@ def prepare_pretrain_dataloaders(
   sampling_rate: int = 100,
   component_order: str = "ZNE",
   dimension_order: str = "NCW",
+  missing_components: str = 'copy',
   collator: Optional[Any] = None,
   cache: Optional[str] = None,
   prefetch_factor: int = 2,
@@ -66,7 +67,8 @@ def prepare_pretrain_dataloaders(
       sampling_rate=sampling_rate,
       component_order=component_order,
       dimension_order=dimension_order,
-      cache=cache
+      cache=cache,
+      missing_components=missing_components,
     )
     if "split" not in dataset.metadata.columns:
       logging.warning("No split defined, adding auxiliary split.")

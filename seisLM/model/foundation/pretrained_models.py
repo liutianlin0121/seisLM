@@ -10,6 +10,7 @@ import lightning as L
 from lightning.pytorch.utilities import grad_norm
 import ml_collections
 import seisbench.generate as sbg
+from seisLM.data_pipeline.augmentations import StdSafeNormalize
 from seisLM.model.foundation.multidim_wav2vec2 import MultiDimWav2Vec2ForPreTraining
 from seisLM.utils.data_utils import phase_dict
 
@@ -148,19 +149,6 @@ class LitMultiDimWav2Vec2(L.LightningModule):
             selection="random",
             strategy="variable",
         ),
-        # sbg.OneOf(
-        #     [
-        #         sbg.WindowAroundSample(
-        #             list(phase_dict.keys()),
-        #             samples_before=3000,
-        #             windowlen=6000,
-        #             selection="random",
-        #             strategy="variable",
-        #         ),
-        #         sbg.NullAugmentation(),
-        #     ],
-        #     probabilities=[2, 1],
-        # ),
         sbg.RandomWindow(
             low=None,
             high=None,
@@ -168,7 +156,8 @@ class LitMultiDimWav2Vec2(L.LightningModule):
             strategy="pad",
         ),
         sbg.ChangeDtype(np.float32),
-        sbg.Normalize(
+        # sbg.Normalize(
+        StdSafeNormalize(
           demean_axis= -1 if self.config.data_config.demean else None,
           amp_norm_axis= -1 if self.config.data_config.amp_norm else None,
           amp_norm_type=self.config.data_config.amp_norm_type,
