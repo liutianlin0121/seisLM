@@ -15,6 +15,23 @@ from abc import ABC, abstractmethod
 from typing import Optional, Tuple, Any, Dict
 import math
 
+"""
+This file contains the specifications for models used for phase-picking tasks.
+
+Münchmeyer, J., Woollam, J., Rietbrock, A., Tilmann, F., Lange,
+D., Bornstein, T., et al. (2022).
+Which picker fits my data? A quantitative evaluation of deep learning based
+seismic pickers. Journal of Geophysical Research: Solid Earth, 127.
+https://doi.org/10.1029/2021JB023499
+
+Modified from:
+https://github.com/seisbench/pick-benchmark/blob/main/benchmark/models.py
+"""
+
+from abc import ABC, abstractmethod
+from typing import Optional, Tuple, Any, Dict
+import math
+
 import ml_collections
 import einops
 import lightning as L
@@ -327,45 +344,56 @@ class MultiDimWav2Vec2ForFrameClassificationLit(BasePhaseNetLikeLit):
   def __init__(
     self,
     model_config: ml_collections.ConfigDict,
-    training_config: ml_collections.ConfigDict
+    training_config: ml_collections.ConfigDict,
+    load_pretrained: bool = True,
     ):
     super().__init__(model_config, training_config)
+
+    if load_pretrained:
+      pretrained_model = (
+          pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
+            model_config.pretrained_ckpt_path
+        ).model
+      )
+
+      new_config = pretrained_model.config
+      for key, value in model_config.items():
+        setattr(new_config, key, value)
+
+      model_config = new_config
+      self.model = MultiDimWav2Vec2ForFrameClassification(model_config)
+
+      if (not model_config.apply_spec_augment) or (
+        model_config.mask_time_prob == 0.0
+      ):
+        # in this case, we don't need the masked spec embed
+        # so we can remove it from both models.
+        if hasattr(pretrained_model.wav2vec2, "masked_spec_embed"):
+          del pretrained_model.wav2vec2.masked_spec_embed
+
+        if hasattr(self.model.wav2vec2, "masked_spec_embed"):
+          del self.model.wav2vec2.masked_spec_embed
+
+      self.model.wav2vec2.load_state_dict(
+          pretrained_model.wav2vec2.state_dict()
+      )
+      del pretrained_model
+      self.model_config = model_config
+    else:
+      self.model = MultiDimWav2Vec2ForFrameClassification(model_config)
+
+      if (not model_config.apply_spec_augment) or (
+        model_config.mask_time_prob == 0.0
+      ):
+        # Remove masked_spec_embed from the instantiated models.
+        if hasattr(self.model.wav2vec2, "masked_spec_embed"):
+          del self.model.wav2vec2.masked_spec_embed
+
+
+    # We save the hyperparameter after the model is instantiated.
+    # This is because the model_config could get updated after loading the
+    # pretrained model.
     self.save_hyperparameters()
-
-    pretrained_model = (
-        pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
-          model_config.pretrained_ckpt_path
-      ).model
-    )
-
-    new_config = pretrained_model.config
-    for key, value in model_config.items():
-      setattr(new_config, key, value)
-
-    # for key, value in new_config.to_dict().items():
-    #   # if ('dropout' in key) and ('attention' not in key) and ('quantizer' not in key):
-    #   if 'dropout' in key:
-    #     new_value = model_config.wav2vec2_dropout_rate
-    #     print(f'Orig. {key} value: {value}. New value: {new_value}')
-    #     setattr(new_config, key, new_value)
-
-    model_config = new_config
-    self.model = MultiDimWav2Vec2ForFrameClassification(model_config)
-
-    if (not model_config.apply_spec_augment) or (
-      model_config.mask_time_prob == 0.0
-    ):
-      # in this case, we don't need the masked spec embed
-      # so we can remove it from both models.
-      if hasattr(pretrained_model.wav2vec2, "masked_spec_embed"):
-        del pretrained_model.wav2vec2.masked_spec_embed
-
-      if hasattr(self.model.wav2vec2, "masked_spec_embed"):
-        del self.model.wav2vec2.masked_spec_embed
-
-    self.model.wav2vec2.load_state_dict(
-        pretrained_model.wav2vec2.state_dict()
-    )
 
     if model_config.freeze_feature_encoder:
       self.model.freeze_feature_encoder()
@@ -379,8 +407,6 @@ class MultiDimWav2Vec2ForFrameClassificationLit(BasePhaseNetLikeLit):
         "It's unconventional to freeze the base model" \
         "without freezing the feature encoder.")
 
-    del pretrained_model
-    self.model_config = model_config
 
   def configure_optimizers(self): # type: ignore
 
