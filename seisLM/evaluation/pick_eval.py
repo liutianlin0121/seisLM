@@ -3,16 +3,15 @@
 https://github.com/seisbench/pick-benchmark
 """
 
+from typing import Optional, Dict
 from pathlib import Path
 import logging
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-# import pytorch_lightning as pl
 import lightning as L
 import seisbench.data as sbd
 import seisbench.generate as sbg
-import seisbench.models as sbm
 from seisLM.model.task_specific import phasepick_models
 from seisLM.utils import project_path
 
@@ -27,7 +26,7 @@ data_aliases = {
     "scedc": "SCEDC",
 }
 
-def get_dataset_by_name(name):
+def get_dataset_by_name(name: str):
   """
   Resolve dataset name to class from seisbench.data.
 
@@ -40,7 +39,7 @@ def get_dataset_by_name(name):
     raise ValueError(f"Unknown dataset '{name}'.")
 
 
-def _identify_instance_dataset_border(task_targets):
+def _identify_instance_dataset_border(task_targets: Dict) -> int:
   """
   Calculates the dataset border between Signal and Noise for instance,
   assuming it is the only place where the bucket number does not increase
@@ -56,8 +55,16 @@ def _identify_instance_dataset_border(task_targets):
 
 
 def save_pick_predictions(
-  checkpoint_path_or_data_name, model_name, targets, sets, batchsize=1024, num_workers=4,
-  sampling_rate=None):
+  checkpoint_path_or_data_name: str,
+  model_name: str,
+  targets: str,
+  sets: str,
+  save_tag: str,
+  batchsize: int = 1024,
+  num_workers: int = 4,
+  sampling_rate: Optional[int] = None
+  ) -> None:
+
   targets = Path(targets)
   sets = sets.split(",")
 
@@ -66,17 +73,17 @@ def save_pick_predictions(
   torch.backends.cudnn.deterministic = True
 
   model_cls = phasepick_models.__getattribute__(model_name + "Lit")
+
   if 'ckpt' in checkpoint_path_or_data_name:
     # In case of a checkpoint, load the model from the checkpoint
-    model = model_cls.load_from_checkpoint(checkpoint_path_or_data_name)
+    if model_name == 'MultiDimWav2Vec2ForFrameClassification':
+      model = model_cls.load_from_checkpoint(
+        checkpoint_path_or_data_name, load_pretrained=False
+      )
+    else:
+      model = model_cls.load_from_checkpoint(checkpoint_path_or_data_name)
   else:
-    # In case of a data name, load the model from the pretrained model
-    # TODO: This won't work if the model takes positional argument.
-    model = model_cls()
-    model.model = sbm.__getattribute__(model_name).from_pretrained(
-      checkpoint_path_or_data_name
-    )
-    print(model.model.weights_docstring)
+    raise ValueError("Only checkpoint loading is supported")
 
   dataset = get_dataset_by_name(data_aliases[targets.name])(
       sampling_rate=100, component_order="ZNE", dimension_order="NCW",
@@ -168,10 +175,9 @@ def save_pick_predictions(
 
       pred_path = (
         Path(project_path.EVAL_SAVE_DIR)
-        / f"{model_name}_{targets.name}"
+        / f"{save_tag}_{targets.name}"
         / f"{eval_set}_task{task}.csv"
       )
       pred_path.parent.mkdir(exist_ok=True, parents=True)
       # pred_path = f'./{eval_set}_task{task}.csv'
       task_targets.to_csv(pred_path, index=False)
-
