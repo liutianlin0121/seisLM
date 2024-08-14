@@ -11,43 +11,25 @@ Modified from:
 https://github.com/seisbench/pick-benchmark/blob/main/benchmark/models.py
 """
 
-from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Any, Dict
 import math
-
-"""
-This file contains the specifications for models used for phase-picking tasks.
-
-Münchmeyer, J., Woollam, J., Rietbrock, A., Tilmann, F., Lange,
-D., Bornstein, T., et al. (2022).
-Which picker fits my data? A quantitative evaluation of deep learning based
-seismic pickers. Journal of Geophysical Research: Solid Earth, 127.
-https://doi.org/10.1029/2021JB023499
-
-Modified from:
-https://github.com/seisbench/pick-benchmark/blob/main/benchmark/models.py
-"""
-
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Any, Dict
-import math
+from typing import Any, Dict, Optional, Tuple
 
-import ml_collections
 import einops
 import lightning as L
+import ml_collections
 import numpy as np
 import seisbench.generate as sbg
 import seisbench.models as sbm
 import torch
-from torch import Tensor
 import torch.nn as nn
+from torch import Tensor
 from torch.optim.lr_scheduler import LambdaLR
 
-from seisLM.model.foundation import initialization
-from seisLM.model.foundation import pretrained_models
+from seisLM.data_pipeline.augmentations import DuplicateEvent
+from seisLM.model.foundation import initialization, pretrained_models
 from seisLM.model.task_specific.shared_task_specific import (
-  BaseMultiDimWav2Vec2ForDownstreamTasks, DoubleConvBlock
-)
+    BaseMultiDimWav2Vec2ForDownstreamTasks, DoubleConvBlock)
 from seisLM.utils.data_utils import phase_dict
 
 
@@ -448,3 +430,202 @@ class MultiDimWav2Vec2ForFrameClassificationLit(BasePhaseNetLikeLit):
         'frequency': 1,
     }
     return {"optimizer": optimizer, "lr_scheduler": sched_config}
+
+
+class EQTransformerLit(SeisBenchModuleLit):
+  """
+  LightningModule for EQTransformer
+
+  :param lr: Learning rate, defaults to 1e-2
+  :param sigma: Standard deviation passed to the ProbabilisticPickLabeller
+  :param sample_boundaries: Low and high boundaries for the RandomWindow selection.
+  :param loss_weights: Loss weights for detection, P and S phase.
+  :param rotate_array: If true, rotate array along sample axis.
+  :param detection_fixed_window: Passed as parameter fixed_window to detection
+  :param kwargs: Kwargs are passed to the SeisBench.models.EQTransformer constructor.
+  """
+
+  def __init__(
+      self,
+      model_config: ml_collections.ConfigDict,
+      training_config: ml_collections.ConfigDict,
+  ):
+    super().__init__()
+    self.save_hyperparameters()
+    self.model_config = model_config
+    self.training_config = training_config
+    self.loss = torch.nn.BCELoss()
+    self.model = sbm.EQTransformer(**model_config.kwargs)
+
+  def forward(self, x: Tensor) -> Any:
+    return self.model(x)
+
+  def shared_step(self, batch: Dict) -> Tensor:
+    x = batch["X"]
+    p_true = batch["y"][:, 0]
+    s_true = batch["y"][:, 1]
+    det_true = batch["detections"][:, 0]
+    det_pred, p_pred, s_pred = self.model(x)
+
+    return (
+        self.training_config.loss_weights[0] * self.loss(det_pred, det_true)
+        + self.training_config.loss_weights[1] * self.loss(p_pred, p_true)
+        + self.training_config.loss_weights[2] * self.loss(s_pred, s_true)
+    )
+
+  def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
+    loss = self.shared_step(batch)
+    self.log("train/loss", loss)
+    return loss
+
+  def validation_step(self, batch: Dict, batch_idx) -> Tensor:
+    loss = self.shared_step(batch)
+    self.log("val/loss", loss)
+    return loss
+
+  def configure_optimizers(self) -> Any:
+    optimizer = torch.optim.Adam(
+      self.parameters(),
+      **self.training_config.optimizer_args
+    )
+    return optimizer
+
+  def get_joint_augmentations(self) -> Tuple:
+    p_phases = [key for key, val in phase_dict.items() if val == "P"]
+    s_phases = [key for key, val in phase_dict.items() if val == "S"]
+
+    if self.training_config.detection_fixed_window is not None:
+        detection_labeller = sbg.DetectionLabeller(
+            p_phases,
+            fixed_window=self.training_config.detection_fixed_window,
+            key=("X", "detections"),
+        )
+    else:
+        detection_labeller = sbg.DetectionLabeller(
+            p_phases, s_phases=s_phases, key=("X", "detections")
+        )
+
+    block1 = [
+        # In 2/3 of the cases, select windows around picks, to reduce amount
+        # of noise traces in training.
+        # Uses strategy variable, as padding will be handled by
+        # the random window.
+        # In 1/3 of the cases, just returns the original trace,
+        # to keep diversity high.
+        sbg.OneOf(
+            [
+                sbg.WindowAroundSample(
+                    list(phase_dict.keys()),
+                    samples_before=6000,
+                    windowlen=12000,
+                    selection="random",
+                    strategy="variable",
+                ),
+                sbg.NullAugmentation(),
+            ],
+            probabilities=[2, 1],
+        ),
+        sbg.RandomWindow(
+            low=self.model_config.sample_boundaries[0],
+            high=self.model_config.sample_boundaries[1],
+            windowlen=6000,
+            strategy="pad",
+        ),
+        sbg.ProbabilisticLabeller(
+            label_columns=phase_dict, sigma=self.model_config.sigma, dim=0
+        ),
+        detection_labeller,
+        # Normalize to ensure correct augmentation behavior
+        sbg.Normalize(detrend_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
+    ]
+
+    block2 = [
+        sbg.ChangeDtype(np.float32, "X"),
+        sbg.ChangeDtype(np.float32, "y"),
+        sbg.ChangeDtype(np.float32, "detections"),
+    ]
+
+    return block1, block2
+
+  def get_train_augmentations(self) -> Any:
+    if self.training_config.rotate_array:
+      rotation_block = [
+          sbg.OneOf(
+              [
+                  sbg.RandomArrayRotation(["X", "y", "detections"]),
+                  sbg.NullAugmentation(),
+              ],
+              [0.99, 0.01],
+          )
+      ]
+    else:
+      rotation_block = []
+
+    augmentation_block = [
+        # Add secondary event
+        sbg.OneOf(
+            [DuplicateEvent(label_keys="y"), sbg.NullAugmentation()],
+            probabilities=[0.3, 0.7],
+        ),
+        # Gaussian noise
+        sbg.OneOf([sbg.GaussianNoise(), sbg.NullAugmentation()], [0.5, 0.5]),
+        # Array rotation
+        *rotation_block,
+        # Gaps
+        sbg.OneOf([sbg.AddGap(), sbg.NullAugmentation()], [0.2, 0.8]),
+        # Channel dropout
+        sbg.OneOf([sbg.ChannelDropout(), sbg.NullAugmentation()], [0.3, 0.7]),
+        # Augmentations make second normalize necessary
+        sbg.Normalize(detrend_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
+    ]
+
+    block1, block2 = self.get_joint_augmentations()
+
+    return block1 + augmentation_block + block2
+
+  def get_val_augmentations(self) -> Any:
+    block1, block2 = self.get_joint_augmentations()
+
+    return block1 + block2
+
+  def get_augmentations(self) -> Any:
+    raise NotImplementedError("Use get_train/val_augmentations instead.")
+
+  def get_eval_augmentations(self) -> Any:
+    return [
+        sbg.SteeredWindow(windowlen=6000, strategy="pad"),
+        sbg.ChangeDtype(np.float32),
+        sbg.Normalize(detrend_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
+    ]
+
+  def predict_step(
+    self,
+    batch: Dict,
+    batch_idx: int = None,
+    dataloader_idx: int = None
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    x = batch["X"]
+    window_borders = batch["window_borders"]
+
+    det_pred, p_pred, s_pred = self.model(x)
+
+    score_detection = torch.zeros(det_pred.shape[0])
+    score_p_or_s = torch.zeros(det_pred.shape[0])
+    p_sample = torch.zeros(det_pred.shape[0], dtype=int)
+    s_sample = torch.zeros(det_pred.shape[0], dtype=int)
+
+    for i in range(det_pred.shape[0]):
+      start_sample, end_sample = window_borders[i]
+      local_det_pred = det_pred[i, start_sample:end_sample]
+      local_p_pred = p_pred[i, start_sample:end_sample]
+      local_s_pred = s_pred[i, start_sample:end_sample]
+
+      score_detection[i] = torch.max(local_det_pred)
+      score_p_or_s[i] = torch.max(local_p_pred) / torch.max(
+          local_s_pred
+      )  # most likely P by most likely S
+
+      p_sample[i] = torch.argmax(local_p_pred)
+      s_sample[i] = torch.argmax(local_s_pred)
+
+    return score_detection, score_p_or_s, p_sample, s_sample

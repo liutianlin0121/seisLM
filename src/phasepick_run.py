@@ -160,10 +160,6 @@ if __name__ == "__main__":
   parser.add_argument("--config_path", type=str, required=True)
 
   parser.add_argument(
-      "--data_name", type=str, required=True,
-      help="Name of the dataset to use"
-  )
-  parser.add_argument(
       "--training_fraction", type=float, required=True,
       help="Fraction of the training set to use"
   )
@@ -182,7 +178,6 @@ if __name__ == "__main__":
   task_name = os.path.basename(__file__)[: -len(".py")]
   run_name_prefix = args.config_path.split("/")[-1].split(".")[0]
 
-  config.data_args.data_name = args.data_name
   config.data_args.training_fraction = args.training_fraction
 
   try:

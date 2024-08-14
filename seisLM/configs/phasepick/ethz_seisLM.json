@@ -1,7 +1,8 @@
 {
   "model_name": "MultiDimWav2Vec2ForFrameClassification",
   "data_args": {
-    "batch_size": 32
+    "batch_size": 32,
+    "data_name": "ETHZ"
   },
   "training_args": {
     "devices": 2,
