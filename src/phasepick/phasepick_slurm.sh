@@ -19,7 +19,7 @@ conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench
 srun python3 phasepick_run.py \
   --config /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/seisLM_convpos.json \
   --data_name GEOFON \
-  --training_fraction 0.05 \
+  --training_fraction 1.0 \
 
 # phasenet
 # srun python3 phasepick_run.py \

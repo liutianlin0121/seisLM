@@ -156,7 +156,6 @@ class LitMultiDimWav2Vec2(L.LightningModule):
             strategy="pad",
         ),
         sbg.ChangeDtype(np.float32),
-        # sbg.Normalize(
         StdSafeNormalize(
           demean_axis= -1 if self.config.data_config.demean else None,
           amp_norm_axis= -1 if self.config.data_config.amp_norm else None,

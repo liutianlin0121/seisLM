@@ -39,21 +39,8 @@ def train_self_supervised(
 
   seed_everything(config.seed)
 
-  if config.pretrained_ckpt_path:
-    model = LitMultiDimWav2Vec2.load_from_checkpoint(
-      config.pretrained_ckpt_path
-    )
 
-    # load from a pretrained model; the use case here is to finetune
-    # on the features of a downstream dataset
-    # The only downstream task we consider for now is the
-    # shock-classification dataset.
-    print(f"Loaded model from {config.pretrained_ckpt_path}")
-    assert config.data_config.data_name == ['shock']
-    config.model_config = model.config.model_config
-
-  else:
-    model = LitMultiDimWav2Vec2(config)
+  model = LitMultiDimWav2Vec2(config)
 
 
   data_collator = \

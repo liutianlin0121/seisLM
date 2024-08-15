@@ -1,12 +1,13 @@
 from seisLM.data_pipeline import seisbench_dataloaders as dataloaders
 
 dataset_names = [
-  "ETHZ",
-  "GEOFON",
-  "STEAD",
-  "NEIC",
-  "InstanceCounts",
-  "Iquique",
+  # "ETHZ",
+  # "GEOFON",
+  # "STEAD",
+  # "NEIC",
+  # "InstanceCounts",
+  # "Iquique",
+  "MLAAPDE"
 ]
 
 
