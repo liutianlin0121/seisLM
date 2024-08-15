@@ -25,6 +25,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.optim.lr_scheduler import LambdaLR
+import torch.nn.functional as F
 
 from seisLM.data_pipeline.augmentations import DuplicateEvent
 from seisLM.model.foundation import initialization, pretrained_models
@@ -475,12 +476,12 @@ class EQTransformerLit(SeisBenchModuleLit):
 
   def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
     loss = self.shared_step(batch)
-    self.log("train/loss", loss)
+    self.log("train/loss", loss, sync_dist=True)
     return loss
 
   def validation_step(self, batch: Dict, batch_idx) -> Tensor:
     loss = self.shared_step(batch)
-    self.log("val/loss", loss)
+    self.log("val/loss", loss, sync_dist=True)
     return loss
 
   def configure_optimizers(self) -> Any:
@@ -627,5 +628,185 @@ class EQTransformerLit(SeisBenchModuleLit):
 
       p_sample[i] = torch.argmax(local_p_pred)
       s_sample[i] = torch.argmax(local_s_pred)
+
+    return score_detection, score_p_or_s, p_sample, s_sample
+
+
+class GPDLit(SeisBenchModuleLit):
+  """
+  LightningModule for GPD
+
+  :param lr: Learning rate, defaults to 1e-3
+  :param sigma: Standard deviation passed to the ProbabilisticPickLabeller. If not, uses determinisic labels,
+                i.e., whether a pick is contained.
+  :param highpass: If not None, cutoff frequency for highpass filter in Hz.
+  :param kwargs: Kwargs are passed to the SeisBench.models.GPD constructor.
+  """
+
+  def __init__(
+    self,
+    model_config: ml_collections.ConfigDict,
+    training_config: ml_collections.ConfigDict,
+    ):
+    super().__init__()
+    self.save_hyperparameters()
+    self.model_config = model_config
+    self.training_config = training_config
+
+
+    self.model = sbm.GPD(**model_config.kwargs)
+    if self.model_config.sigma is None:
+      self.nllloss = torch.nn.NLLLoss()
+      self.loss = self.nll_with_probabilities
+    else:
+      self.loss = vector_cross_entropy
+    # self.highpass = highpass
+    self.predict_stride = 5
+
+  def nll_with_probabilities(
+    self,
+    y_pred: Tensor,
+    y_true: Tensor
+  ) -> Tensor:
+    y_pred = torch.log(y_pred)
+    return self.nllloss(y_pred, y_true)
+
+  def forward(self, x: Tensor) -> Any:
+    return self.model(x)
+
+  def shared_step(self, batch: Dict) -> Tensor:
+    x = batch["X"]
+    y_true = batch["y"].squeeze()
+    y_pred = self.model(x)
+    return self.loss(y_pred, y_true)
+
+  def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
+    loss = self.shared_step(batch)
+    self.log("train/loss", loss, sync_dist=True)
+    return loss
+
+  def validation_step(self, batch: Dict, batch_idx: int) -> Tensor:
+    loss = self.shared_step(batch)
+    self.log("val/loss", loss, sync_dist=True)
+    return loss
+
+  def configure_optimizers(self) -> Any:
+    optimizer = torch.optim.Adam(
+      self.parameters(),
+      **self.training_config.optimizer_args
+    )
+    return optimizer
+
+  def get_augmentations(self) -> Any:
+    filter = []
+    if self.training_config.highpass is not None:
+      filter = [sbg.Filter(1, self.training_config.highpass, "highpass")]
+
+    if self.model_config.sigma is None:
+      labeller = sbg.StandardLabeller(
+          label_columns=phase_dict,
+          on_overlap="fixed-relevance",
+          low=100,
+          high=-100,
+      )
+    else:
+      labeller = sbg.ProbabilisticPointLabeller(
+          label_columns=phase_dict, position=0.5, sigma=self.model_config.sigma
+      )
+
+    return (
+        [
+          # In 2/3 of the cases, select windows around picks,
+          # to reduce amount of noise traces in training.
+          # Uses strategy variable, as padding will be handled
+          # by the random window.
+          # In 1/3 of the cases, just returns the original trace,
+          # to keep diversity high.
+          sbg.OneOf(
+              [
+                  sbg.WindowAroundSample(
+                      list(phase_dict.keys()),
+                      samples_before=400,
+                      windowlen=800,
+                      selection="random",
+                      strategy="variable",
+                  ),
+                  sbg.NullAugmentation(),
+              ],
+              probabilities=[2, 1],
+          ),
+          sbg.RandomWindow(
+              windowlen=400,
+              strategy="pad",
+          ),
+          sbg.Normalize(
+            detrend_axis=-1,
+            amp_norm_axis=-1,
+            amp_norm_type="peak"
+          ),
+          labeller,
+        ]
+        + filter
+        + [sbg.ChangeDtype(np.float32)]
+    )
+
+  def get_eval_augmentations(self):
+    filter = []
+    if self.highpass is not None:
+        filter = [sbg.Filter(1, self.highpass, "highpass")]
+
+    return [
+        # Larger window length ensures a sliding
+        # window covering full trace can be applied
+        sbg.SteeredWindow(windowlen=3400, strategy="pad"),
+        sbg.SlidingWindow(timestep=self.predict_stride, windowlen=400),
+        sbg.Normalize(detrend_axis=-1, amp_norm_axis=-1, amp_norm_type="peak"),
+        *filter,
+        sbg.ChangeDtype(np.float32),
+    ]
+
+  def predict_step(
+    self,
+    batch: Dict,
+    batch_idx: Optional[int] = None,
+    dataloader_idx: Optional[int] = None
+    ):
+    x = batch["X"]
+    window_borders = batch["window_borders"]
+
+    shape_save = x.shape
+    x = x.reshape(
+        (-1,) + shape_save[2:]
+    )  # Merge batch and sliding window dimensions
+    pred = self.model(x)
+    pred = pred.reshape(shape_save[:2] + (-1,))
+    pred = torch.repeat_interleave(
+        pred, self.predict_stride, dim=1
+    )  # Counteract stride
+    pred = F.pad(pred, (0, 0, 200, 200))
+    pred = pred.permute(0, 2, 1)
+
+    # Otherwise windows shorter 30 s will automatically produce detections
+    pred[:, 2, :200] = 1
+    pred[:, 2, -200:] = 1
+
+    score_detection = torch.zeros(pred.shape[0])
+    score_p_or_s = torch.zeros(pred.shape[0])
+    p_sample = torch.zeros(pred.shape[0], dtype=int)
+    s_sample = torch.zeros(pred.shape[0], dtype=int)
+
+    for i in range(pred.shape[0]):
+      start_sample, end_sample = window_borders[i]
+      local_pred = pred[i, :, start_sample:end_sample]
+
+      score_detection[i] = torch.max(1 - local_pred[-1])  # 1 - noise
+      score_p_or_s[i] = torch.max(local_pred[0]) / torch.max(
+          local_pred[1]
+      )  # most likely P by most likely S
+
+      # Adjust for prediction stride by choosing the sample in
+      # the middle of each block
+      p_sample[i] = torch.argmax(local_pred[0]) + self.predict_stride // 2
+      s_sample[i] = torch.argmax(local_pred[1]) + self.predict_stride // 2
 
     return score_detection, score_p_or_s, p_sample, s_sample

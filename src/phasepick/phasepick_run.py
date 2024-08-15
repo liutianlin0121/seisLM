@@ -149,7 +149,6 @@ def train_phasepick(
   )
 
   trainer.fit(model, train_loader, dev_loader)
-  # wandb.finish()
 
 if __name__ == "__main__":
   torch.backends.cudnn.benchmark = True
@@ -179,6 +178,8 @@ if __name__ == "__main__":
   run_name_prefix = args.config_path.split("/")[-1].split(".")[0]
 
   config.data_args.training_fraction = args.training_fraction
+
+  slurm_job_id = os.getenv('SLURM_JOB_ID')
 
   try:
     train_phasepick(
