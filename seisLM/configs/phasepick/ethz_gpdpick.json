@@ -20,5 +20,9 @@
   "model_args": {
     "sigma": 50,
     "kwargs": {}
+  },
+  "eval_args": {
+    "sets":  "test",
+    "batch_size": 32
   }
 }

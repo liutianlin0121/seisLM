@@ -20,5 +20,9 @@
     "sample_boundaries": [null, null],
     "sigma": 20,
     "kwargs": {}
+  },
+  "eval_args": {
+    "sets":  "test",
+    "batch_size": 32
   }
 }

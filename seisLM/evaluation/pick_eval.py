@@ -15,17 +15,6 @@ import seisbench.generate as sbg
 from seisLM.model.task_specific import phasepick_models
 from seisLM.utils import project_path
 
-data_aliases = {
-    "ethz": "ETHZ",
-    "geofon": "GEOFON",
-    "stead": "STEAD",
-    "neic": "NEIC",
-    "instance": "InstanceCountsCombined",
-    "iquique": "Iquique",
-    "lendb": "LenDB",
-    "scedc": "SCEDC",
-}
-
 def get_dataset_by_name(name: str):
   """
   Resolve dataset name to class from seisbench.data.
@@ -55,37 +44,23 @@ def _identify_instance_dataset_border(task_targets: Dict) -> int:
 
 
 def save_pick_predictions(
-  checkpoint_path_or_data_name: str,
-  model_name: str,
-  targets: str,
+  model: L.LightningModule,
+  target_path: str,
   sets: str,
   save_tag: str,
-  batchsize: int = 1024,
+  batch_size: int = 1024,
   num_workers: int = 4,
-  sampling_rate: Optional[int] = None
+  sampling_rate: Optional[int] = None,
   ) -> None:
 
-  targets = Path(targets)
+  targets = Path(target_path)
   sets = sets.split(",")
-
+  model.eval()
 
   torch.backends.cudnn.benchmark = True
   torch.backends.cudnn.deterministic = True
 
-  model_cls = phasepick_models.__getattribute__(model_name + "Lit")
-
-  if 'ckpt' in checkpoint_path_or_data_name:
-    # In case of a checkpoint, load the model from the checkpoint
-    if model_name == 'MultiDimWav2Vec2ForFrameClassification':
-      model = model_cls.load_from_checkpoint(
-        checkpoint_path_or_data_name, load_pretrained=False
-      )
-    else:
-      model = model_cls.load_from_checkpoint(checkpoint_path_or_data_name)
-  else:
-    raise ValueError("Only checkpoint loading is supported")
-
-  dataset = get_dataset_by_name(data_aliases[targets.name])(
+  dataset = get_dataset_by_name(targets.name)(
       sampling_rate=100, component_order="ZNE", dimension_order="NCW",
       cache="full"
   )
@@ -97,7 +72,7 @@ def save_pick_predictions(
 
   for eval_set in sets:
     split = dataset.get_split(eval_set)
-    if targets.name == "instance":
+    if targets.name == "InstanceCountsCombined":
       logging.warning(
           "Overwriting noise trace_names to allow correct identification"
       )
@@ -145,7 +120,7 @@ def save_pick_predictions(
       generator.add_augmentations(model.get_eval_augmentations())
 
       loader = DataLoader(
-        generator, batch_size=batchsize, shuffle=False, num_workers=num_workers
+        generator, batch_size=batch_size, shuffle=False, num_workers=num_workers
       )
       trainer = L.Trainer(
         accelerator="gpu",
@@ -159,7 +134,9 @@ def save_pick_predictions(
 
       # Merge batches
       merged_predictions = []
+
       for i, _ in enumerate(predictions[0]):
+        print(torch.cat([x[i] for x in predictions]).shape)
         merged_predictions.append(torch.cat([x[i] for x in predictions]))
 
       merged_predictions = [x.cpu().numpy() for x in merged_predictions]
@@ -180,4 +157,5 @@ def save_pick_predictions(
       )
       pred_path.parent.mkdir(exist_ok=True, parents=True)
       # pred_path = f'./{eval_set}_task{task}.csv'
+      print(f"Saving predictions to {pred_path}")
       task_targets.to_csv(pred_path, index=False)

@@ -8,6 +8,7 @@ python src/phasepick_run.py --config /scicore/home/dokman0000/liu0003/projects/s
 python phasepick_run.py --config /home/liu0003/Desktop/projects/seisLM/seisLM/configs/phasepick/ethz_phasenet.json --save_checkpoints
 
 """
+import logging
 import argparse
 import json
 import os
@@ -28,6 +29,7 @@ from seisLM.data_pipeline import seisbench_dataloaders as dataloaders
 from seisLM.model.task_specific import phasepick_models
 from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
+from seisLM.evaluation import pick_eval
 
 
 def train_phasepick(
@@ -63,7 +65,8 @@ def train_phasepick(
   data_name = config.data_args.data_name
   training_fraction = config.data_args.get("training_fraction", 1.0)
 
-  model = phasepick_models.__getattribute__(model_name + "Lit")(
+  model_cls = phasepick_models.__getattribute__(model_name + "Lit")
+  model = model_cls(
     config.model_args, config.training_args
   )
 
@@ -126,7 +129,7 @@ def train_phasepick(
     enable_checkpointing = True
   else:
     enable_checkpointing = False
-    print('Checkpoints will not be saved.')
+    logging.warning("Checkpoints will not be saved.")
 
 
   log_every_n_steps = max(
@@ -149,6 +152,30 @@ def train_phasepick(
   )
 
   trainer.fit(model, train_loader, dev_loader)
+
+  if trainer.checkpoint_callback is not None:
+    best_model_path = trainer.checkpoint_callback.best_model_path
+    if model_name == 'MultiDimWav2Vec2ForFrameClassification':
+      model = model_cls.load_from_checkpoint(
+        best_model_path,
+        load_pretrained=False
+      )
+    else:
+      model = model_cls.load_from_checkpoint(
+        best_model_path
+      )
+
+    target_path = project_path.gitdir() +\
+      f'/data/targets/{config.data_args.data_name}/'
+
+    pick_eval.save_pick_predictions(
+        model=model,
+        target_path=target_path,
+        sets=config.eval_args.sets,
+        batch_size=config.eval_args.batch_size,
+        save_tag=f"{run_name_prefix}_{run_name}",
+    )
+
 
 if __name__ == "__main__":
   torch.backends.cudnn.benchmark = True
@@ -177,6 +204,15 @@ if __name__ == "__main__":
   task_name = os.path.basename(__file__)[: -len(".py")]
   run_name_prefix = args.config_path.split("/")[-1].split(".")[0]
 
+
+  target_path = project_path.gitdir() +\
+    f'/data/targets/{config.data_args.data_name}/'
+
+  assert os.path.exists(target_path), (
+    f"Target path {target_path} does not exist."
+    )
+
+
   config.data_args.training_fraction = args.training_fraction
 
   slurm_job_id = os.getenv('SLURM_JOB_ID')
@@ -188,6 +224,7 @@ if __name__ == "__main__":
       save_checkpoints=args.save_checkpoints,
       run_name_prefix=run_name_prefix,
     )
+
 
   except Exception as e:
     traceback.print_exc()
