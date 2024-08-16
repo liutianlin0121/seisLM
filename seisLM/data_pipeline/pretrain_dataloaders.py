@@ -54,12 +54,6 @@ def prepare_pretrain_dataloaders(
     data_names = [data_names]
 
 
-  # If shock is in the data_names, return only the shock loaders
-  if "shock" in data_names:
-    assert len(data_names) == 1, "`shock` should be the only data_name"
-    return shock_loaders['train'], {'shock': shock_loaders['val']}
-
-  # If shock is not in the data_names, return the seisbench dataloaders
   multi_waveform_datasets = []
   dev_generators = {}
   for data_name in data_names:

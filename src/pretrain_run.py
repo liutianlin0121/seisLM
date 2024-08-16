@@ -72,7 +72,7 @@ def train_self_supervised(
   )
 
   checkpoint_callback = ModelCheckpoint(
-      monitor='train/loss',
+      monitor='val/avg_loss',
       save_top_k=1,
       save_last=True,
       mode='min',
@@ -147,18 +147,15 @@ if __name__ == '__main__':
     # if test_run is True, train for only 1 epoch w/ a small batchsize.
     print("Running in test mode")
     config.training_config.max_epochs = 2
-    # config.data_config.local_batch_size = 4 #8
+    config.data_config.local_batch_size = 4 #8
     config.data_config.data_name = ['ETHZ']
+    config.data_config.training_fraction = 1.0 #0.034
     config.training_config.detect_anomaly = True
-    # config.training_config.devices=2
+    config.training_config.devices=2
     project_name = "test_pretrained_seisLM"
   else:
     config.training_config.detect_anomaly = False
-    if config.data_config.data_name == ['shock']:
-      project_name = "ssl_finetune_shock_seisLM"
-      run_name_prefix = "ssl_finetune_shock_seisLM"
-    else:
-      project_name = "pretrained_seisLM"
+    project_name = "pretrained_seisLM"
 
   try:
     train_self_supervised(

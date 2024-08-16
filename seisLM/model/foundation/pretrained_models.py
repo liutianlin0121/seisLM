@@ -1,4 +1,5 @@
 """Wav2Vec2 model."""
+from collections import defaultdict
 from typing import Dict, List, Any
 import copy
 import math
@@ -28,6 +29,9 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     val_dataloader_names = copy.deepcopy(config.data_config.data_name)
     val_dataloader_names = val_dataloader_names + ['shock']
     self.val_dataloader_names = val_dataloader_names
+
+    # Create a list to hold the outputs of `validation_step`
+    self.validation_step_outputs = []
 
   def on_before_optimizer_step(self, optimizer: Optimizer) -> None:
     # inspect (unscaled) gradients here
@@ -84,21 +88,51 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     self, batch: Dict, batch_idx: int, dataloader_idx: int=0) -> Dict:
     # pylint:disable=missing-function-docstring
     # pylint:disable=invalid-name
+    data_name = self.val_dataloader_names[dataloader_idx]
 
     num_losses = batch["mask_time_indices"].sum().float()
     outputs = self.model(**batch)
     validation_outputs = {
-      "val/loss": outputs.loss / num_losses,
-      "val/contrastive_loss": outputs.contrastive_loss / num_losses,
-      "val/diversity_loss": outputs.diversity_loss / num_losses,
-      "val/num_losses": num_losses,
+      f"val/loss/{data_name}": outputs.loss / num_losses,
+      f"val/contrastive_loss/{data_name}": outputs.contrastive_loss / num_losses,
+      f"val/diversity_loss/{data_name}": outputs.diversity_loss / num_losses,
+      f"val/num_losses/{data_name}": num_losses,
     }
     # Average losses across all batches and all devices
     self.log_dict(
       validation_outputs, reduce_fx="mean",
-      on_step=False, on_epoch=True, sync_dist=True
+      on_step=False, on_epoch=True, sync_dist=True,
+      add_dataloader_idx=False
     )
+
+    self.validation_step_outputs.append(validation_outputs)
     return validation_outputs
+
+  def on_validation_epoch_end(self) -> None:
+
+    # Step 1: Combine all dictionaries into a single dictionary
+    sums = defaultdict(float)
+    counts = defaultdict(int)
+
+    # Step 2: Iterate over each dictionary and sum up the values
+    for entry in self.validation_step_outputs:
+      for key, value in entry.items():
+        base_key = '/'.join(key.split('/')[:2])  # Extract 'val/loss/', etc.
+        sums[base_key] += value.item()
+        counts[base_key] += 1
+
+    # Step 3: Calculate averages
+    averages = {}
+    for key in sums:
+      avg_key = key.replace('val/', 'val/avg_')
+      averages[avg_key] = sums[key] / counts[key]
+
+    self.log_dict(
+      averages, on_step=False, on_epoch=True, sync_dist=True,
+    )
+
+    self.validation_step_outputs.clear() # free up memory
+    assert len(self.validation_step_outputs) == 0
 
 
   def configure_optimizers(self): # type: ignore
