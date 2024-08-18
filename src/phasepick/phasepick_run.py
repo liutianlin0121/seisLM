@@ -215,7 +215,11 @@ if __name__ == "__main__":
 
   config.data_args.training_fraction = args.training_fraction
 
+
   slurm_job_id = os.getenv('SLURM_JOB_ID')
+
+  if config.training_args.devices == 1:
+    config.training_args.strategy = 'auto' # disable ddp for single GPU
 
   try:
     train_phasepick(

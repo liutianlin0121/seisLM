@@ -660,7 +660,6 @@ class GPDLit(SeisBenchModuleLit):
       self.loss = self.nll_with_probabilities
     else:
       self.loss = vector_cross_entropy
-    # self.highpass = highpass
     self.predict_stride = 5
 
   def nll_with_probabilities(
@@ -752,8 +751,8 @@ class GPDLit(SeisBenchModuleLit):
 
   def get_eval_augmentations(self):
     filter = []
-    if self.highpass is not None:
-        filter = [sbg.Filter(1, self.highpass, "highpass")]
+    if self.training_config.highpass is not None:
+        filter = [sbg.Filter(1, self.training_config.highpass, "highpass")]
 
     return [
         # Larger window length ensures a sliding

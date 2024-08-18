@@ -6,13 +6,14 @@ https://github.com/seisbench/pick-benchmark
 from typing import Optional, Dict
 from pathlib import Path
 import logging
+import numpy as np
+from sklearn import metrics
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 import lightning as L
 import seisbench.data as sbd
 import seisbench.generate as sbg
-from seisLM.model.task_specific import phasepick_models
 from seisLM.utils import project_path
 
 def get_dataset_by_name(name: str):
@@ -99,7 +100,7 @@ def save_pick_predictions(
       task_targets = pd.read_csv(task_csv)
       task_targets = task_targets[task_targets["trace_split"] == eval_set]
 
-      if task == "1" and targets.name == "instance":
+      if task == "1" and targets.name == "InstanceCountsCombined":
         border = _identify_instance_dataset_border(task_targets)
         task_targets["trace_name"].values[border:] = task_targets["trace_name"][
             border:
@@ -136,7 +137,6 @@ def save_pick_predictions(
       merged_predictions = []
 
       for i, _ in enumerate(predictions[0]):
-        print(torch.cat([x[i] for x in predictions]).shape)
         merged_predictions.append(torch.cat([x[i] for x in predictions]))
 
       merged_predictions = [x.cpu().numpy() for x in merged_predictions]
@@ -159,3 +159,69 @@ def save_pick_predictions(
       # pred_path = f'./{eval_set}_task{task}.csv'
       print(f"Saving predictions to {pred_path}")
       task_targets.to_csv(pred_path, index=False)
+
+
+def get_results_event_detection(pred_path):
+  pred = pd.read_csv(pred_path)
+  pred["trace_type_bin"] = pred["trace_type"] == "earthquake"
+  pred["score_detection"] = pred["score_detection"].fillna(0)
+
+  fpr, tpr, _ = metrics.roc_curve(
+    pred["trace_type_bin"], pred["score_detection"])
+  prec, recall, thr = metrics.precision_recall_curve(
+    pred["trace_type_bin"], pred["score_detection"]
+  )
+  auc = metrics.roc_auc_score(
+    pred["trace_type_bin"], pred["score_detection"]
+  )
+
+
+  f1 = 2 * prec * recall / (prec + recall)
+  f1_threshold = thr[np.nanargmax(f1)]
+  best_f1 = np.max(f1)
+
+  return {
+    'auc': auc,
+    'fpr': fpr,
+    'tpr': tpr,
+    'prec': prec,
+    'recall': recall,
+    'f1': f1,
+    'f1_threshold': f1_threshold,
+    'best_f1': best_f1
+  }
+
+def get_results_phase_identification(pred_path):
+  pred = pd.read_csv(pred_path)
+  pred["phase_label_bin"] = pred["phase_label"] == "P"
+  pred["score_p_or_s"] = pred["score_p_or_s"].fillna(0)
+  fpr, tpr, _ = metrics.roc_curve(
+    pred["phase_label_bin"], pred["score_p_or_s"]
+  )
+  prec, recall, thr = metrics.precision_recall_curve(
+    pred["phase_label_bin"], pred["score_p_or_s"]
+  )
+  f1 = 2 * prec * recall / (prec + recall)
+  f1_threshold = thr[np.nanargmax(f1)]
+  best_f1 = np.nanmax(f1)
+
+  return {
+    'fpr': fpr,
+    'tpr': tpr,
+    'prec': prec,
+    'recall': recall,
+    'f1': f1,
+    'f1_threshold': f1_threshold,
+    'best_f1': best_f1
+  }
+
+def get_results_onset_determination(pred_path):
+  pred = pd.read_csv(pred_path)
+  results = {}
+  for phase in ['P', 'S']:
+    pred_phase = pred[pred["phase_label"] == phase]
+    pred_col = f"{phase.lower()}_sample_pred"
+    diff = (pred_phase[pred_col] - pred_phase["phase_onset"]
+            ) / pred_phase["sampling_rate"]
+    results[f'{phase}_onset_diff'] = diff
+  return results

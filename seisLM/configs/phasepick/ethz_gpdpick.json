@@ -1,19 +1,19 @@
 {
   "model_name": "GPD",
   "data_args": {
-    "batch_size": 32,
+    "batch_size": 64,
     "data_name": "ETHZ",
     "prefetch_factor": 1
   },
   "training_args": {
-    "devices": 2,
+    "devices": 1,
     "strategy": "ddp",
     "accelerator": "gpu",
     "max_epochs": 100,
     "highpass": 0.5,
     "optimizer_args":
       {
-        "lr": 1e-3,
+        "lr": 5e-4,
         "weight_decay": 0.0
       }
   },
