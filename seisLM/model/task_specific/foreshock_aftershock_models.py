@@ -150,15 +150,11 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
     # of shape [batch_size, channel_size, seq_len]
     if config.pool_type == "mean":
       pool = Reduce('b c l-> b c', reduction='mean')
-      pool_out_dim = (
-        config.hidden_size + 3 if config.concat_downsampled_input else config.hidden_size
-      )
+      pool_out_dim = config.hidden_size
 
     elif config.pool_type == "mean_std":
       pool = MeanStdStatPool1D(dim_to_reduce=2)
-      pool_out_dim = 2 * (
-        config.hidden_size + 3 if config.concat_downsampled_input else config.hidden_size
-      )
+      pool_out_dim = 2 * (config.hidden_size)
 
     else:
       raise ValueError(f"Pooling type {config.pool_type} not recognized.")
@@ -178,9 +174,28 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
       self.head = nn.Sequential(
         Rearrange('b l c -> b c l'),
         pool,
-        nn.BatchNorm1d(config.hidden_size),
         nn.Dropout(config.head_dropout_rate),
         nn.Linear(pool_out_dim, config.num_classes)
+      )
+
+    elif config.head_type == "conv":
+
+      self.head = nn.Sequential(
+        Rearrange('b l c -> b c l'),
+        DoubleConvBlock(
+          in_channels=config.hidden_size,
+          out_channels=config.hidden_size,
+          kernel_size=3,
+          dropout_rate=config.head_dropout_rate
+        ),
+        DoubleConvBlock(
+          in_channels=config.hidden_size,
+          out_channels=config.classifier_proj_size,
+          kernel_size=3,
+          dropout_rate=config.head_dropout_rate
+        ),
+        Reduce('b c l -> b c', reduction='mean'),
+        nn.Linear(config.classifier_proj_size, config.num_classes)
       )
 
     else:
@@ -195,9 +210,7 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
     Returns:
       logits: The classification logits.
     """
-    hidden_states = self.get_wav2vec2_hidden_states(
-      input_values, concat_downsampled_input=self.config.concat_downsampled_input
-    )
+    hidden_states = self.get_wav2vec2_hidden_states(input_values)
     logits = self.head(hidden_states)
     return logits
 

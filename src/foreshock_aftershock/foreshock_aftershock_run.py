@@ -170,7 +170,8 @@ if __name__ == "__main__":
   with open(args.config, "r", encoding="utf-8") as f:
     config = json.load(f)
   config = ml_collections.ConfigDict(config)
-  if hasattr(config.model_args, "layerdrop"):
+  if hasattr(config.model_args, "layerdrop") and (
+    config.model_args.layerdrop > 0):
     config.trainer_args.strategy = "ddp_find_unused_parameters_true"
 
 
