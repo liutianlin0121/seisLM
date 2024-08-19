@@ -19,43 +19,7 @@ from einops.layers.torch import Reduce, Rearrange
 
 from seisLM.model.foundation import pretrained_models
 from seisLM.model.task_specific.shared_task_specific import (
-  BaseMultiDimWav2Vec2ForDownstreamTasks)
-
-
-
-class DoubleConvBlock(nn.Module):
-  """Two conv layers with batchnorm and ReLU activation, like in a 1d U-Net."""
-  def __init__(
-    self,
-    *,
-    in_channels: int,
-    out_channels: int,
-    kernel_size: int,
-    dropout_rate: float
-    ):
-    super(DoubleConvBlock, self).__init__()
-
-    conv_shared_kwargs = {
-      'kernel_size': kernel_size,
-      'out_channels': out_channels,
-      'padding': 'valid',
-      'bias': False, # Because batchnorm follows the conv layer.
-    }
-
-    self.double_conv = nn.Sequential(
-      nn.Conv1d(in_channels=in_channels, stride=1, **conv_shared_kwargs),
-      nn.BatchNorm1d(out_channels),
-      nn.GELU(),
-      nn.Dropout(dropout_rate),
-      nn.Conv1d(in_channels=out_channels, stride=2, **conv_shared_kwargs),
-      nn.BatchNorm1d(out_channels),
-      nn.GELU(),
-      nn.Dropout(dropout_rate),
-    )
-
-  def forward(self, x: Tensor) -> Tensor:
-    x = self.double_conv(x)
-    return x
+  BaseMultiDimWav2Vec2ForDownstreamTasks, DoubleConvBlock)
 
 
 class Conv1DShockClassifier(nn.Module):
@@ -84,12 +48,6 @@ class Conv1DShockClassifier(nn.Module):
     self.conv_encoder = nn.Sequential(*layers)
     self.global_pool = nn.AdaptiveAvgPool1d(1)
     self.fc = nn.Linear(out_channels, config.num_classes)
-    # self.fc2 = nn.Linear(out_channels, config.num_classes)
-
-    # # Copy the weights and biases from fc1 to fc2
-    # self.fc2.weight.data = self.fc1.weight.data.clone()
-    # self.fc2.bias.data = self.fc1.bias.data.clone()
-
 
 
   def get_cam(self, x: Tensor, interp: bool = True) -> torch.Tensor:
@@ -146,60 +104,25 @@ class Wav2Vec2ForSequenceClassification(BaseMultiDimWav2Vec2ForDownstreamTasks):
   def __init__(self, config: ml_collections.ConfigDict):
     super().__init__(config)
 
-    # assume the input to pooling is
-    # of shape [batch_size, channel_size, seq_len]
-    if config.pool_type == "mean":
-      pool = Reduce('b c l-> b c', reduction='mean')
-      pool_out_dim = config.hidden_size
-
-    elif config.pool_type == "mean_std":
-      pool = MeanStdStatPool1D(dim_to_reduce=2)
-      pool_out_dim = 2 * (config.hidden_size)
-
-    else:
-      raise ValueError(f"Pooling type {config.pool_type} not recognized.")
-
-    if config.head_type == "mlp":
-      self.head = nn.Sequential(
-        Rearrange('b l c -> b c l'),
-        pool,
-        nn.Linear(pool_out_dim, config.classifier_proj_size, bias=False),
-        nn.BatchNorm1d(config.classifier_proj_size),
-        nn.GELU(),
-        nn.Dropout(config.head_dropout_rate),
-        nn.Linear(config.classifier_proj_size, config.num_classes)
-      )
-
-    elif config.head_type == "linear":
-      self.head = nn.Sequential(
-        Rearrange('b l c -> b c l'),
-        pool,
-        nn.Dropout(config.head_dropout_rate),
-        nn.Linear(pool_out_dim, config.num_classes)
-      )
-
-    elif config.head_type == "conv":
-
-      self.head = nn.Sequential(
-        Rearrange('b l c -> b c l'),
-        DoubleConvBlock(
-          in_channels=config.hidden_size,
-          out_channels=config.hidden_size,
-          kernel_size=3,
-          dropout_rate=config.head_dropout_rate
-        ),
-        DoubleConvBlock(
-          in_channels=config.hidden_size,
-          out_channels=config.classifier_proj_size,
-          kernel_size=3,
-          dropout_rate=config.head_dropout_rate
-        ),
-        Reduce('b c l -> b c', reduction='mean'),
-        nn.Linear(config.classifier_proj_size, config.num_classes)
-      )
-
-    else:
-      raise ValueError(f"Head type {config.head_type} not recognized.")
+    self.head = nn.Sequential(
+      Rearrange('b l c -> b c l'),
+      DoubleConvBlock(
+        in_channels=config.hidden_size,
+        out_channels=config.hidden_size,
+        kernel_size=3,
+        dropout_rate=config.head_dropout_rate,
+        strides=[2, 2],
+      ),
+      DoubleConvBlock(
+        in_channels=config.hidden_size,
+        out_channels=config.classifier_proj_size,
+        kernel_size=3,
+        dropout_rate=config.head_dropout_rate,
+        strides=[2, 2],
+      ),
+      Reduce('b c l -> b c', reduction='mean'),
+      nn.Linear(config.classifier_proj_size, config.num_classes)
+    )
 
   def forward(self, input_values: torch.Tensor,) -> Tensor:
     """The forward pass of the sequence classification model.
