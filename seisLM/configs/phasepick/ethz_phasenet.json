@@ -1,12 +1,12 @@
 {
   "model_name": "PhaseNet",
   "data_args": {
-    "batch_size": 64,
+    "batch_size": 32,
     "data_name": "ETHZ",
     "prefetch_factor": 1
   },
   "training_args": {
-    "devices": 1,
+    "devices": 3,
     "strategy": "ddp",
     "accelerator": "gpu",
     "max_epochs": 100,

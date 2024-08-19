@@ -42,7 +42,7 @@ source ~/anaconda3/etc/profile.d/conda.sh
 conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench
 
 srun python3 pretrain_run.py \\
-  --config_path ${CONFIG_DIR}/${JOB_NAME}/pretrain_config_layernorm_std_small_batch_6_datasets.json \\
+  --config_path ${CONFIG_DIR}/${JOB_NAME}/pretrain_config_layernorm_std_small_batch_6_datasets_with_MLAAPDE.json \\
 EOT
 
 if [ "$TEST_RUN" = true ]; then

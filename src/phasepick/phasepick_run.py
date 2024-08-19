@@ -141,6 +141,7 @@ def train_phasepick(
   trainer = L.Trainer(
       profiler="simple",
       log_every_n_steps=log_every_n_steps,
+      check_val_every_n_epoch=5,
       default_root_dir=project_path.MODEL_SAVE_DIR,
       logger=logger,
       callbacks=callbacks,
