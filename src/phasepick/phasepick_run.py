@@ -155,27 +155,28 @@ def train_phasepick(
   trainer.fit(model, train_loader, dev_loader)
 
   if trainer.checkpoint_callback is not None:
-    best_model_path = trainer.checkpoint_callback.best_model_path
-    if model_name == 'MultiDimWav2Vec2ForFrameClassification':
-      model = model_cls.load_from_checkpoint(
-        best_model_path,
-        load_pretrained=False
-      )
-    else:
-      model = model_cls.load_from_checkpoint(
-        best_model_path
-      )
+    if trainer.global_rank == 0:
+      best_model_path = trainer.checkpoint_callback.best_model_path
+      if model_name == 'MultiDimWav2Vec2ForFrameClassification':
+        model = model_cls.load_from_checkpoint(
+          best_model_path,
+          load_pretrained=False
+        )
+      else:
+        model = model_cls.load_from_checkpoint(
+          best_model_path
+        )
 
-    target_path = project_path.gitdir() +\
-      f'/data/targets/{config.data_args.data_name}/'
+      target_path = project_path.gitdir() +\
+        f'/data/targets/{config.data_args.data_name}/'
 
-    pick_eval.save_pick_predictions(
-        model=model,
-        target_path=target_path,
-        sets=config.eval_args.sets,
-        batch_size=config.eval_args.batch_size,
-        save_tag=f"{run_name_prefix}_{run_name}",
-    )
+      pick_eval.save_pick_predictions(
+          model=model,
+          target_path=target_path,
+          sets=config.eval_args.sets,
+          batch_size=config.eval_args.batch_size,
+          save_tag=f"{run_name_prefix}_{run_name}",
+      )
 
 
 if __name__ == "__main__":
