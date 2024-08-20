@@ -32,7 +32,6 @@
     "apply_spec_augment": true,
     "classifier_proj_size": 256,
     "head_dropout_rate": 0.2,
-    "pool_type": "mean",
     "freeze_feature_encoder": true,
     "freeze_base_model": false,
     "use_weighted_layer_sum": false,
