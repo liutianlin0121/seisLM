@@ -1,38 +1,56 @@
 """ Registry of phasepick model checkpoints. """
 
 ethz_phasenet = {
-  '0.05': "results/models/phasepick_run/ethz_phasenet_ETHZ_train_frac_0.05_model_PhaseNet_seed_42_time_2024-08-16-18h-22m-37s/checkpoints/epoch=49-step=800.ckpt",
-  '0.1': "results/models/phasepick_run/ethz_phasenet_ETHZ_train_frac_0.1_model_PhaseNet_seed_42_time_2024-08-16-18h-27m-46s/checkpoints/epoch=44-step=2160.ckpt",
-  '0.2': "results/models/phasepick_run/ethz_phasenet_ETHZ_train_frac_0.2_model_PhaseNet_seed_42_time_2024-08-16-18h-33m-46s/checkpoints/epoch=43-step=3520.ckpt",
-  '0.5': "results/models/phasepick_run/ethz_phasenet_ETHZ_train_frac_0.5_model_PhaseNet_seed_42_time_2024-08-16-18h-40m-51s/checkpoints/epoch=37-step=6498.ckpt",
-  '1.0': "results/models/phasepick_run/ethz_phasenet_ETHZ_train_frac_1.0_model_PhaseNet_seed_42_time_2024-08-16-18h-50m-24s/checkpoints/epoch=37-step=13414.ckpt",
+  '0.05': 'results/models/phasepick_run/ethz_phasenet_ETHZ_train_frac_0.05_model_PhaseNet_seed_42_time_2024-08-18-16h-12m-30s/checkpoints/epoch=99-step=1000.ckpt',
+  '0.1': 'results/models/phasepick_run/ethz_phasenet_ETHZ_train_frac_0.1_model_PhaseNet_seed_42_time_2024-08-18-16h-32m-28s/checkpoints/epoch=89-step=2880.ckpt',
+  '0.2': 'results/models/phasepick_run/ethz_phasenet_ETHZ_train_frac_0.2_model_PhaseNet_seed_42_time_2024-08-18-17h-13m-54s/checkpoints/epoch=84-step=4505.ckpt',
+  '0.5': 'results/models/phasepick_run/ethz_phasenet_ETHZ_train_frac_0.5_model_PhaseNet_seed_42_time_2024-08-18-18h-20m-28s/checkpoints/epoch=54-step=6270.ckpt',
+  '1.0': 'results/models/phasepick_run/ethz_phasenet_ETHZ_train_frac_1.0_model_PhaseNet_seed_42_time_2024-08-18-20h-30m-04s/checkpoints/epoch=84-step=19975.ckpt',
 }
 
 geofon_phasenet = {
-  '0.05': "results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_0.05_model_PhaseNet_seed_42_time_2024-08-16-19h-03m-09s/checkpoints/epoch=44-step=5580.ckpt",
-  '0.1': "results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_0.1_model_PhaseNet_seed_42_time_2024-08-16-19h-05m-27s/checkpoints/epoch=42-step=10965.ckpt",
-  '0.2': "results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_0.2_model_PhaseNet_seed_42_time_2024-08-16-19h-19m-56s/checkpoints/epoch=40-step=20336.ckpt",
-  '0.5': "results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_0.5_model_PhaseNet_seed_42_time_2024-08-16-19h-24m-26s/checkpoints/epoch=39-step=50760.ckpt",
-  '1.0': "results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_1.0_model_PhaseNet_seed_42_time_2024-08-16-19h-42m-55s/checkpoints/epoch=43-step=110880.ckpt",
+  '0.05': 'results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_0.05_model_PhaseNet_seed_42_time_2024-08-19-00h-36m-04s/checkpoints/epoch=54-step=4565.ckpt',
+  "0.1": 'results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_0.1_model_PhaseNet_seed_42_time_2024-08-19-02h-10m-26s/checkpoints/epoch=54-step=9350.ckpt',
+  "0.2": 'results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_0.2_model_PhaseNet_seed_42_time_2024-08-19-04h-13m-43s/checkpoints/epoch=54-step=18205.ckpt',
+  '0.5': 'results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_0.5_model_PhaseNet_seed_42_time_2024-08-19-07h-46m-23s/checkpoints/epoch=54-step=46530.ckpt',
+  '1.0': 'results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_1.0_model_PhaseNet_seed_42_time_2024-08-19-15h-12m-35s/checkpoints/epoch=84-step=142800.ckpt',
 }
 
+
+
 ethz_eqtransformer = {
-  '0.05': "results/models/phasepick_run/ethz_eqtransformer_ETHZ_train_frac_0.05_model_EQTransformer_seed_42_time_2024-08-17-22h-39m-10s/checkpoints/epoch=47-step=768.ckpt",
-  '0.1': "results/models/phasepick_run/ethz_eqtransformer_ETHZ_train_frac_0.1_model_EQTransformer_seed_42_time_2024-08-17-22h-39m-10s/checkpoints/epoch=47-step=2304.ckpt",
-  '0.2': "results/models/phasepick_run/ethz_eqtransformer_ETHZ_train_frac_0.2_model_EQTransformer_seed_42_time_2024-08-17-22h-47m-15s/checkpoints/epoch=46-step=3760.ckpt",
-  '0.5': "results/models/phasepick_run/ethz_eqtransformer_ETHZ_train_frac_0.5_model_EQTransformer_seed_42_time_2024-08-17-22h-49m-18s/checkpoints/epoch=44-step=7695.ckpt",
-  '1.0': "results/models/phasepick_run/ethz_eqtransformer_ETHZ_train_frac_1.0_model_EQTransformer_seed_42_time_2024-08-17-23h-00m-03s/checkpoints/epoch=49-step=17650.ckpt",
+  '0.05': 'results/models/phasepick_run/ethz_eqtransformer_ETHZ_train_frac_0.05_model_EQTransformer_seed_42_time_2024-08-19-09h-02m-09s/checkpoints/epoch=94-step=760.ckpt',
+  '0.1': 'results/models/phasepick_run/ethz_eqtransformer_ETHZ_train_frac_0.1_model_EQTransformer_seed_42_time_2024-08-19-09h-08m-10s/checkpoints/epoch=94-step=2280.ckpt',
+  '0.2': 'results/models/phasepick_run/ethz_eqtransformer_ETHZ_train_frac_0.2_model_EQTransformer_seed_42_time_2024-08-19-09h-16m-00s/checkpoints/epoch=94-step=3800.ckpt',
+  '0.5': 'results/models/phasepick_run/ethz_eqtransformer_ETHZ_train_frac_0.5_model_EQTransformer_seed_42_time_2024-08-19-09h-25m-43s/checkpoints/epoch=94-step=8075.ckpt',
+  '1.0': 'results/models/phasepick_run/ethz_eqtransformer_ETHZ_train_frac_1.0_model_EQTransformer_seed_42_time_2024-08-19-09h-40m-33s/checkpoints/epoch=99-step=17600.ckpt',
 }
 
 
 geofon_eqtransformer = {
-  '0.05': "results/models/phasepick_run/geofon_eqtransformer_GEOFON_train_frac_0.05_model_EQTransformer_seed_42_time_2024-08-17-23h-09m-09s/checkpoints/epoch=48-step=6076.ckpt",
-  "0.1": "results/models/phasepick_run/geofon_eqtransformer_GEOFON_train_frac_0.1_model_EQTransformer_seed_42_time_2024-08-17-23h-33m-07s/checkpoints/epoch=49-step=12750.ckpt",
-  "0.2": "results/models/phasepick_run/geofon_eqtransformer_GEOFON_train_frac_0.2_model_EQTransformer_seed_42_time_2024-08-17-23h-42m-10s/checkpoints/epoch=49-step=24800.ckpt",
-  '0.5': "results/models/phasepick_run/geofon_eqtransformer_GEOFON_train_frac_0.5_model_EQTransformer_seed_42_time_2024-08-16-23h-40m-00s/checkpoints/epoch=43-step=55836.ckpt",
-  '1.0': "results/models/phasepick_run/geofon_eqtransformer_GEOFON_train_frac_1.0_model_EQTransformer_seed_42_time_2024-08-17-00h-02m-48s/checkpoints/epoch=47-step=120960.ckpt"
+  '0.05': 'results/models/phasepick_run/geofon_eqtransformer_GEOFON_train_frac_0.05_model_EQTransformer_seed_42_time_2024-08-19-10h-06m-13s/checkpoints/epoch=99-step=6200.ckpt',
+  '0.1': 'results/models/phasepick_run/geofon_eqtransformer_GEOFON_train_frac_0.1_model_EQTransformer_seed_42_time_2024-08-19-10h-21m-13s/checkpoints/epoch=94-step=12065.ckpt',
+  '0.2': 'results/models/phasepick_run/geofon_eqtransformer_GEOFON_train_frac_0.2_model_EQTransformer_seed_42_time_2024-08-19-10h-43m-26s/checkpoints/epoch=94-step=23560.ckpt',
+  '0.5': 'results/models/phasepick_run/geofon_eqtransformer_GEOFON_train_frac_0.5_model_EQTransformer_seed_42_time_2024-08-19-11h-19m-12s/checkpoints/epoch=99-step=63400.ckpt',
+  '1.0': 'results/models/phasepick_run/geofon_eqtransformer_GEOFON_train_frac_1.0_model_EQTransformer_seed_42_time_2024-08-19-12h-38m-25s/checkpoints/epoch=84-step=107100.ckpt',
 }
 
+
+# ethz_gpdpick = {
+#   '0.05': 'results/models/phasepick_run/ethz_gpdpick_ETHZ_train_frac_0.05_model_GPD_seed_42_time_2024-08-20-17h-52m-24s/checkpoints/epoch=94-step=950.ckpt',
+#   '0.1': 'results/models/phasepick_run/ethz_gpdpick_ETHZ_train_frac_0.1_model_GPD_seed_42_time_2024-08-20-17h-52m-24s/checkpoints/epoch=94-step=3040.ckpt',
+#   '0.2': 'results/models/phasepick_run/ethz_gpdpick_ETHZ_train_frac_0.2_model_GPD_seed_42_time_2024-08-20-17h-52m-24s/checkpoints/epoch=74-step=3975.ckpt',
+#   '0.5': 'results/models/phasepick_run/ethz_gpdpick_ETHZ_train_frac_0.5_model_GPD_seed_42_time_2024-08-20-19h-00m-13s/checkpoints/epoch=94-step=10830.ckpt',
+#   '1.0': 'results/models/phasepick_run/ethz_gpdpick_ETHZ_train_frac_1.0_model_GPD_seed_42_time_2024-08-20-19h-02m-18s/checkpoints/epoch=64-step=15275.ckpt',
+# }
+
+# geofon_gpdpick = {
+#   '0.05': 'results/models/phasepick_run/geofon_gpdpick_GEOFON_train_frac_0.05_model_GPD_seed_42_time_2024-08-20-19h-06m-51s/checkpoints/epoch=54-step=4565.ckpt',
+#   '0.1': 'results/models/phasepick_run/geofon_gpdpick_GEOFON_train_frac_0.1_model_GPD_seed_42_time_2024-08-20-19h-18m-39s/checkpoints/epoch=89-step=15300.ckpt',
+#   '0.2': 'results/models/phasepick_run/geofon_gpdpick_GEOFON_train_frac_0.2_model_GPD_seed_42_time_2024-08-20-20h-22m-53s/checkpoints/epoch=79-step=26480.ckpt',
+#   '0.5': 'results/models/phasepick_run/geofon_gpdpick_GEOFON_train_frac_0.5_model_GPD_seed_42_time_2024-08-20-20h-42m-05s/checkpoints/epoch=99-step=84600.ckpt',
+#   '1.0': 'results/models/phasepick_run/geofon_gpdpick_GEOFON_train_frac_1.0_model_GPD_seed_42_time_2024-08-20-23h-20m-38s/checkpoints/epoch=99-step=168000.ckpt',
+# }
 
 # seislm_ethz = {
 #   '0.05': "/home/liu0003/Desktop/projects/seisLM/results/models/phasepick_run/seisLM_convpos_ETHZ_train_frac_0.05_model_MultiDimWav2Vec2ForFrameClassification_seed_42_time_2024-08-12-20h-00m-41s/checkpoints/epoch=40-step=656.ckpt", 

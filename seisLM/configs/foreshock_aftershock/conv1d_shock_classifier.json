@@ -2,7 +2,7 @@
   "model_name": "Conv1DShockClassifier",
   "data_args": {
     "num_workers": 8,
-    "batch_size": 32,
+    "batch_size": 64,
     "event_split_method": "temporal",
     "component_order": "ZNE",
     "seed": 42,
@@ -15,7 +15,7 @@
     "amp_norm_type": "std"
   },
   "trainer_args": {
-    "devices": 2,
+    "devices": 1,
     "strategy": "ddp",
     "accelerator": "gpu",
     "max_epochs": 100,

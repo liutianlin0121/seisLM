@@ -16,11 +16,8 @@ import traceback
 
 import lightning as L
 import torch
-import wandb
 from lightning.pytorch import seed_everything
-from lightning.pytorch.callbacks import (
-  LearningRateMonitor, ModelCheckpoint, StochasticWeightAveraging
-)
+from lightning.pytorch.callbacks import (LearningRateMonitor, ModelCheckpoint)
 from lightning.pytorch.loggers import WandbLogger
 import ml_collections
 
@@ -31,6 +28,12 @@ from seisLM.model.task_specific import foreshock_aftershock_models
 from seisLM.utils import project_path
 from seisLM.utils.wandb_utils import shutdown_cleanup_thread
 from seisLM.model.task_specific import shared_task_specific
+
+
+# The ratio 0.7 here is the base fraction of training dataset
+# (out of the whole dataset that contains training, validation,
+# and testing sets).
+BASE_TRAINING_FRACTION = 0.7
 
 def train_foreshock_aftershock(
   config: ml_collections.ConfigDict,
@@ -47,7 +50,6 @@ def train_foreshock_aftershock(
       num_classes=config.model_args.num_classes,
       **config.data_args,
   )
-
 
   max_train_steps = config.trainer_args.max_epochs * len(
     loaders['train'])
@@ -71,7 +73,12 @@ def train_foreshock_aftershock(
     "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
   )
 
+  relative_fraction = round(
+    config.data_args.train_frac / BASE_TRAINING_FRACTION, 3
+  )
+
   run_name = f"num_classes_{config.model_args.num_classes}_seed_{seed}"\
+    + f"_training_fraction_{relative_fraction}"\
     + f"_model_{config.model_name}"\
     + f"_time_{formatted_time}"
 
@@ -113,13 +120,6 @@ def train_foreshock_aftershock(
     enable_checkpointing = False
     print('Checkpoints will not be saved.')
 
-  if hasattr(config.trainer_args, "swa_lrs"):
-    swa_callback = StochasticWeightAveraging(
-      swa_lrs=config.trainer_args.swa_lrs,
-      swa_epoch_start=0.5,
-      annealing_epochs=2
-    )
-    callbacks.append(swa_callback)
 
   if (config.model_name == "Wav2Vec2ForSequenceClassification" and
     config.trainer_args.unfreeze_base_at_epoch > 0):
@@ -150,7 +150,6 @@ def train_foreshock_aftershock(
   trainer.fit(model, loaders['train'], loaders['test'])
   # trainer.test(ckpt_path="best", dataloaders=loaders['test'])
   trainer.test(ckpt_path="last", dataloaders=loaders['test'])
-  # wandb.finish()
 
 if __name__ == "__main__":
   torch.backends.cudnn.benchmark = True
@@ -160,25 +159,37 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("--config", type=str, required=True)
   parser.add_argument(
+    "--training_fraction", type=float, default=1.0, required=False,
+    help="Fraction of the training set to use (default: 1.0)"
+  )
+  parser.add_argument(
+    "--num_classes", type=int, choices=[2, 4, 8, 9],
+    default=4, required=False,
+    help="Number of classes in the dataset (2, 4, 8, or 9). (default: 4)"
+  )
+
+  parser.add_argument(
       "--save_checkpoints", action="store_true",
       help="Run in test mode for profiling purposes"
   )
 
   args = parser.parse_args()
 
-
   with open(args.config, "r", encoding="utf-8") as f:
     config = json.load(f)
   config = ml_collections.ConfigDict(config)
+
   if hasattr(config.model_args, "layerdrop") and (
     config.model_args.layerdrop > 0):
     config.trainer_args.strategy = "ddp_find_unused_parameters_true"
 
 
-  task_name = os.path.basename(__file__)[: -len(".py")]
 
-  num_classes = 4
-  config.model_args.num_classes = num_classes
+
+  config.data_args.train_frac = args.training_fraction * BASE_TRAINING_FRACTION
+
+  config.model_args.num_classes = args.num_classes
+  task_name = os.path.basename(__file__)[: -len(".py")]
 
   try:
     train_foreshock_aftershock(config, task_name, args.save_checkpoints)

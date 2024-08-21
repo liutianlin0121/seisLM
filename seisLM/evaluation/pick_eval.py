@@ -2,7 +2,7 @@
 
 https://github.com/seisbench/pick-benchmark
 """
-
+import logging
 from typing import Optional, Dict
 from pathlib import Path
 import logging
@@ -157,7 +157,7 @@ def save_pick_predictions(
       )
       pred_path.parent.mkdir(exist_ok=True, parents=True)
       # pred_path = f'./{eval_set}_task{task}.csv'
-      print(f"Saving predictions to {pred_path}")
+      logging.warning(f"Saving predictions to {pred_path}")
       task_targets.to_csv(pred_path, index=False)
 
 
@@ -205,7 +205,12 @@ def get_results_phase_identification(pred_path):
   f1_threshold = thr[np.nanargmax(f1)]
   best_f1 = np.nanmax(f1)
 
+  auc = metrics.roc_auc_score(
+    pred["phase_label_bin"], pred["score_p_or_s"]
+  )
+
   return {
+    'auc': auc,
     'fpr': fpr,
     'tpr': tpr,
     'prec': prec,

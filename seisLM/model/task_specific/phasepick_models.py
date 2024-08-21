@@ -10,7 +10,6 @@ https://doi.org/10.1029/2021JB023499
 Modified from:
 https://github.com/seisbench/pick-benchmark/blob/main/benchmark/models.py
 """
-
 import math
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple
@@ -622,9 +621,11 @@ class EQTransformerLit(SeisBenchModuleLit):
       local_s_pred = s_pred[i, start_sample:end_sample]
 
       score_detection[i] = torch.max(local_det_pred)
-      score_p_or_s[i] = torch.max(local_p_pred) / torch.max(
-          local_s_pred
-      )  # most likely P by most likely S
+      max_local_s_pred = torch.max(local_s_pred)
+      max_local_s_pred = torch.where(
+        max_local_s_pred == 0, 1e-6, max_local_s_pred
+      )
+      score_p_or_s[i] = torch.max(local_p_pred) / max_local_s_pred
 
       p_sample[i] = torch.argmax(local_p_pred)
       s_sample[i] = torch.argmax(local_s_pred)
