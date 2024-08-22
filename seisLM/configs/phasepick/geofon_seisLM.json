@@ -8,7 +8,7 @@
     "devices": 1,
     "strategy": "ddp",
     "accelerator": "gpu",
-    "max_epochs": 100,
+    "max_epochs": 30,
     "optimizer": "adamw",
     "warmup_frac_step": 0.1,
     "optimizer_args":

@@ -9,7 +9,7 @@
 #SBATCH --output=phasepick.o%j   # Path and name to the file for the STDOUT
 #SBATCH --partition=a100         # Partition to allocate your job
 #SBATCH --qos=1day               # Selected queue to allocate your job
-#SBATCH --time=0-24:00:00        # Maximum allocated time
+#SBATCH --time=0-12:00:00        # Maximum allocated time
 #SBATCH --array=0-9              # Array job with indices
 
 
