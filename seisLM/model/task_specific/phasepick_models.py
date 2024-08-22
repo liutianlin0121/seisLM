@@ -431,6 +431,47 @@ class MultiDimWav2Vec2ForFrameClassificationLit(BasePhaseNetLikeLit):
     }
     return {"optimizer": optimizer, "lr_scheduler": sched_config}
 
+  def get_augmentations(self): # type: ignore
+    return [
+        # In 2/3 of the cases, select windows around picks, to reduce amount
+        # of noise traces in training. Uses strategy variable, as padding will
+        # be handled by the random window. In 1/3 of the cases, just returns
+        # the original trace, to keep diversity high.
+        sbg.OneOf(
+            [
+                sbg.WindowAroundSample(
+                    list(phase_dict.keys()),
+                    samples_before=3000,
+                    windowlen=6000,
+                    selection="random",
+                    strategy="variable",
+                ),
+                sbg.NullAugmentation(),
+            ],
+            probabilities=[2, 1],
+        ),
+        sbg.RandomWindow(
+            low=self.model_config.sample_boundaries[0],
+            high=self.model_config.sample_boundaries[1],
+            windowlen=3001,
+            strategy="pad",
+        ),
+        sbg.ChangeDtype(np.float32),
+        sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="std"),
+        sbg.ProbabilisticLabeller(
+            label_columns=phase_dict,
+            sigma=self.model_config.sigma,
+            dim=0
+        ),
+    ]
+
+  def get_eval_augmentations(self): # type: ignore
+    return [
+        sbg.SteeredWindow(windowlen=3001, strategy="pad"),
+        sbg.ChangeDtype(np.float32),
+        sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="std"),
+    ]
+
 
 class EQTransformerLit(SeisBenchModuleLit):
   """

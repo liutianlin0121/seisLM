@@ -1,20 +1,20 @@
 {
   "model_name": "MultiDimWav2Vec2ForFrameClassification",
   "data_args": {
-    "batch_size": 32,
+    "batch_size": 64,
     "data_name": "ETHZ"
   },
   "training_args": {
-    "devices": 2,
+    "devices": 1,
     "strategy": "ddp",
     "accelerator": "gpu",
-    "max_epochs": 50,
+    "max_epochs": 100,
     "optimizer": "adamw",
     "warmup_frac_step": 0.1,
     "optimizer_args":
       {
         "lr": 5e-4,
-        "weight_decay": 0.5
+        "weight_decay": 0.1
       }
   },
   "model_args": {
@@ -25,12 +25,16 @@
     "mask_time_prob": 0.0,
     "mask_feature_prob": 0.2,
     "mask_feature_length": 10,
-    "layerdrop": 0.1,
+    "layerdrop": 0.0,
     "wav2vec2_dropout_rate": 0.0,
     "head_dropout_rate": 0.2,
     "freeze_feature_encoder": false,
     "freeze_base_model": false,
     "use_weighted_layer_sum": false,
-    "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_layernorm_peak_small_batch_6_datasets_42__2024-08-03-21h-32m-39s/checkpoints/epoch=37-step=998944.ckpt"
+    "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_layernorm_std_small_batch_6_datasets_42__2024-08-14-09h-06m-17s/checkpoints/last.ckpt"
+  },
+  "eval_args": {
+    "sets":  "test",
+    "batch_size": 32
   }
 }
