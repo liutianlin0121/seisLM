@@ -54,11 +54,19 @@ class LitMultiDimWav2Vec2(L.LightningModule):
           self.config.training_config.min_gumbel_temperature
           )
 
-    ratio_completed_steps = self.trainer.global_step / (
-        self.config.training_config.max_train_steps // self.trainer.num_devices
+    # Compute the total number of optimization steps that will be taken
+    total_optimization_steps = self.config.training_config.max_train_steps // (
+        self.trainer.num_devices * self.trainer.accumulate_grad_batches
     )
+
+    # Calculate the ratio of completed steps based on the global step and the
+    # total optimization steps
+    ratio_completed_steps = self.trainer.global_step / total_optimization_steps
+
+    # Calculate the temperature factor based on the completed ratio
     temperature_factor = (1 + math.cos(math.pi * ratio_completed_steps))/2
 
+    # Compute the gumbel temperature based on the temperature factor
     gumbel_temperature = \
         self.config.training_config.min_gumbel_temperature + (
           temperature_factor * temperature_max_min_gap
@@ -73,14 +81,14 @@ class LitMultiDimWav2Vec2(L.LightningModule):
         "train/div_loss": outputs.diversity_loss / num_losses,
         "train/%_mask_idx": percent_masked,
         "train/ppl": outputs.codevector_perplexity,
-        "train/gumbel_temperature": gumbel_temperature,
         "train/global_step": self.trainer.global_step,
         "train/batch_idx": batch_idx,
         "train/temperature_factor": temperature_factor,
-        "train/ratio_completed_steps": ratio_completed_steps,
     }
 
     self.log_dict(train_logs, sync_dist=True)
+    self.log("train/gumbel_temperature", gumbel_temperature, prog_bar=True)
+    self.log("train/ratio_completed_steps", ratio_completed_steps, prog_bar=True)
     return loss
 
 

@@ -30,6 +30,7 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
 
     self.num_groups = config.num_codevector_groups # = G
     self.num_vars = config.num_codevectors_per_group # = V
+    self.last_conv_dim = config.conv_dim[-1]
 
     if config.codevector_dim % self.num_groups != 0:
       raise ValueError(
@@ -122,9 +123,10 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
 
     # project to codevector dim: [B, L, G * V]
     hidden_states = self.weight_proj(hidden_states)
+    assert feature_dim == self.last_conv_dim
 
     if self.scale_logits_in_quantization:
-      hidden_states = hidden_states / math.sqrt(feature_dim)
+      hidden_states = hidden_states / math.sqrt(self.last_conv_dim)
 
 
 

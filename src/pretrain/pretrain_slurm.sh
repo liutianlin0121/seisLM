@@ -8,12 +8,12 @@
 #SBATCH --ntasks-per-node=4      # Total number of tasks per node
 #SBATCH --output=pretrain.o%j # Path and name to the file for the STDOUT
 #SBATCH --partition=a100         # Partition to allocate your job
-#SBATCH --qos=1week              # Selected queue to allocate your job
+#SBATCH --qos=gpu1week              # Selected queue to allocate your job
 #SBATCH --time=7-00:00:00       # Maximum allocated time
 
-source ~/anaconda3/etc/profile.d/conda.sh
+source ~/miniconda3/etc/profile.d/conda.sh
 
-conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench
+conda activate /scicore/home/dokman0000/liu0003/miniconda3/envs/seisbench
 
 srun python3 pretrain_run.py \
-  --config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/pretrain_config_layernorm_std_small_batch_6_datasets_with_MLAAPDE.json \
+  --config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/std_norm_32bit_gradacc_low_temp.json \

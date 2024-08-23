@@ -14,6 +14,7 @@ import time
 import ml_collections
 import lightning as L
 import torch
+import wandb
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import WandbLogger
@@ -93,7 +94,12 @@ def train_self_supervised(
       name=f"{run_name_prefix}_{config.seed}__{formatted_time}",
       id=f"{run_name_prefix}_{config.seed}__{formatted_time}",
       save_code=True,
+      offline=config.get("wandb_offline", False),
   )
+
+  # Explicitly log the config
+  # logger.experiment.config.update(config.to_dict() if hasattr(config, 'to_dict') else config, allow_val_change=True)
+
 
   slurm_job_id = os.getenv('SLURM_JOB_ID')
 
@@ -112,6 +118,8 @@ def train_self_supervised(
       callbacks=callbacks,
       default_root_dir=project_path.MODEL_SAVE_DIR,
       precision=config.training_config.precision,
+      accumulate_grad_batches=config.training_config.get(
+        "accumulate_grad_batches", 1),
   )
 
   # Start training
@@ -143,13 +151,25 @@ if __name__ == '__main__':
   config = ml_collections.ConfigDict(config)
   run_name_prefix = args.config_path.split("/")[-1].split(".")[0]
 
+  scale_min_gumbel_temperature_by_last_conv_dim = (
+    config.training_config.get(
+      'scale_min_gumbel_temperature_by_last_conv_dim',
+      False
+    )
+  )
+
+  if scale_min_gumbel_temperature_by_last_conv_dim:
+    config.training_config.min_gumbel_temperature /= (
+      config.model_config.conv_dim[-1]
+    )
+
   if args.test_run:
     # if test_run is True, train for only 1 epoch w/ a small batchsize.
     print("Running in test mode")
-    config.training_config.max_epochs = 2
+    config.training_config.max_epochs = 1
     config.data_config.local_batch_size = 4 #8
     config.data_config.data_name = ['ETHZ']
-    config.data_config.training_fraction = 1.0 #0.034
+    config.data_config.training_fraction = 0.1 #0.034
     config.training_config.detect_anomaly = True
     config.training_config.devices=2
     project_name = "test_pretrained_seisLM"
@@ -158,6 +178,7 @@ if __name__ == '__main__':
     project_name = "pretrained_seisLM"
 
   try:
+    print(config)
     train_self_supervised(
       config=config,
       project_name=project_name,

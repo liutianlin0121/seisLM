@@ -25,24 +25,27 @@ EOT
 
 if [ "$TEST_RUN" = true ]; then
   cat <<EOT >> $SCRIPT_NAME
-#SBATCH --qos=30min             # Selected queue to allocate your job
-#SBATCH --time=0-00:10:00       # Maximum allocated time
+#SBATCH --qos=gpu1day             # Selected queue to allocate your job
+#SBATCH --time=0-24:00:00       # Maximum allocated time
+#SBATCH --partition=rtx4090         # Partition to allocate your job
+#SBATCH --gres=gpu:2             # Number of GPUs to reserve
+#SBATCH --ntasks-per-node=2      # Total number of tasks per node
 EOT
 else
   cat <<EOT >> $SCRIPT_NAME
-#SBATCH --qos=1week              # Selected queue to allocate your job
+#SBATCH --qos=gpu1week              # Selected queue to allocate your job
 #SBATCH --time=7-00:00:00       # Maximum allocated time
 EOT
 fi
 
 cat <<EOT >> $SCRIPT_NAME
 
-source ~/anaconda3/etc/profile.d/conda.sh
+source ~/miniconda3/etc/profile.d/conda.sh
 
-conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench
+conda activate /scicore/home/dokman0000/liu0003/miniconda3/envs/seisbench
 
 srun python3 pretrain_run.py \\
-  --config_path ${CONFIG_DIR}/${JOB_NAME}/pretrain_config_layernorm_std_small_batch_6_datasets_with_MLAAPDE.json \\
+  --config_path ${CONFIG_DIR}/${JOB_NAME}/std_norm_32bit_gradacc_low_temp.json \\
 EOT
 
 if [ "$TEST_RUN" = true ]; then
