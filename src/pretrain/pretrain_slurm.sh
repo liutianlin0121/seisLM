@@ -16,4 +16,4 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate /scicore/home/dokman0000/liu0003/miniconda3/envs/seisbench
 
 srun python3 pretrain_run.py \
-  --config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/std_norm_32bit_gradacc_low_temp.json \
+  --config_path /scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/pretrain/std_norm_32bit_gradacc_low_temp_div_loss_1e-2.json \

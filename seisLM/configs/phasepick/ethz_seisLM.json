@@ -1,5 +1,6 @@
 {
   "model_name": "MultiDimWav2Vec2ForFrameClassification",
+  "wandb_offline": true,
   "data_args": {
     "batch_size": 64,
     "data_name": "ETHZ"
@@ -31,7 +32,7 @@
     "freeze_feature_encoder": false,
     "freeze_base_model": false,
     "use_weighted_layer_sum": false,
-    "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_layernorm_std_small_batch_6_datasets_42__2024-08-14-09h-06m-17s/checkpoints/last.ckpt"
+    "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_layernorm_std_small_batch_6_datasets_with_MLAAPDE_32bit_42__2024-08-19-16h-32m-52s/checkpoints/last.ckpt"
   },
   "eval_args": {
     "sets":  "test",

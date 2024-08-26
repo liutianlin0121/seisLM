@@ -80,7 +80,6 @@ class LitMultiDimWav2Vec2(L.LightningModule):
         "train/constrast_loss": outputs.contrastive_loss / num_losses,
         "train/div_loss": outputs.diversity_loss / num_losses,
         "train/%_mask_idx": percent_masked,
-        "train/ppl": outputs.codevector_perplexity,
         "train/global_step": self.trainer.global_step,
         "train/batch_idx": batch_idx,
         "train/temperature_factor": temperature_factor,
@@ -89,6 +88,7 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     self.log_dict(train_logs, sync_dist=True)
     self.log("train/gumbel_temperature", gumbel_temperature, prog_bar=True)
     self.log("train/ratio_completed_steps", ratio_completed_steps, prog_bar=True)
+    self.log("train/ppl", outputs.codevector_perplexity, prog_bar=True)
     return loss
 
 
@@ -104,6 +104,7 @@ class LitMultiDimWav2Vec2(L.LightningModule):
       f"val/loss/{data_name}": outputs.loss / num_losses,
       f"val/contrastive_loss/{data_name}": outputs.contrastive_loss / num_losses,
       f"val/diversity_loss/{data_name}": outputs.diversity_loss / num_losses,
+      f"val/ppl/{data_name}": outputs.codevector_perplexity,
       f"val/num_losses/{data_name}": num_losses,
     }
     # Average losses across all batches and all devices

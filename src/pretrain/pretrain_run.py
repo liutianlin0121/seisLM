@@ -11,10 +11,10 @@ import traceback
 import os
 import json
 import time
+import yaml
 import ml_collections
 import lightning as L
 import torch
-import wandb
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import WandbLogger
@@ -88,6 +88,12 @@ def train_self_supervised(
   )
 
 
+  slurm_job_id = os.getenv('SLURM_JOB_ID')
+
+  if slurm_job_id:
+    # logger.log_hyperparams({"slurm_job_id": slurm_job_id})
+    config.slurm_job_id = slurm_job_id
+
   logger = WandbLogger(
       project=project_name,
       save_dir=project_path.MODEL_SAVE_DIR,
@@ -95,16 +101,8 @@ def train_self_supervised(
       id=f"{run_name_prefix}_{config.seed}__{formatted_time}",
       save_code=True,
       offline=config.get("wandb_offline", False),
+      config=config.to_dict(),
   )
-
-  # Explicitly log the config
-  # logger.experiment.config.update(config.to_dict() if hasattr(config, 'to_dict') else config, allow_val_change=True)
-
-
-  slurm_job_id = os.getenv('SLURM_JOB_ID')
-
-  if slurm_job_id:
-    logger.log_hyperparams({"slurm_job_id": slurm_job_id})
 
   trainer = L.Trainer(
       profiler='simple',
@@ -178,7 +176,7 @@ if __name__ == '__main__':
     project_name = "pretrained_seisLM"
 
   try:
-    print(config)
+    print('config', config)
     train_self_supervised(
       config=config,
       project_name=project_name,

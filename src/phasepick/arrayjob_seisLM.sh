@@ -8,14 +8,14 @@
 #SBATCH --ntasks-per-node=1      # Total number of tasks per node
 #SBATCH --output=phasepick.o%j   # Path and name to the file for the STDOUT
 #SBATCH --partition=a100         # Partition to allocate your job
-#SBATCH --qos=1day               # Selected queue to allocate your job
+#SBATCH --qos=gpu1day               # Selected queue to allocate your job
 #SBATCH --time=0-12:00:00        # Maximum allocated time
 #SBATCH --array=0-9              # Array job with indices
 
 
 # TODO: REMEMBER TO EDIT THE ARRAY INDICES!!!
-source ~/anaconda3/etc/profile.d/conda.sh
-conda activate /scicore/home/dokman0000/liu0003/anaconda3/envs/seisbench
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate /scicore/home/dokman0000/liu0003/miniconda3/envs/seisbench
 
 # Define arrays for data names and training fractions
 configs=(
@@ -24,7 +24,6 @@ configs=(
 )
 
 training_fractions=(0.05 0.1 0.2 0.5 1.0)
-# training_fractions=(0.05 0.2)
 
 # Calculate the total number of combinations
 num_training_fractions=${#training_fractions[@]}

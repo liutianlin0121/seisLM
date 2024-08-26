@@ -58,7 +58,8 @@ def train_phasepick(
   seed_everything(seed)
 
   if hasattr(config.model_args, "layerdrop"):
-    config.training_args.strategy = "ddp_find_unused_parameters_true"
+    if config.model_args.layerdrop > 0.0:
+      config.training_args.strategy = "ddp_find_unused_parameters_true"
 
 
   model_name = config.model_name
@@ -104,7 +105,9 @@ def train_phasepick(
       # A unique identifier for the run
       id=f"{run_name_prefix}_{run_name}",
       save_code=True,
+      offline=config.get("wandb_offline", False),
       save_dir=project_path.MODEL_SAVE_DIR,
+      config=config,
   )
 
   slurm_job_id = os.getenv('SLURM_JOB_ID')
