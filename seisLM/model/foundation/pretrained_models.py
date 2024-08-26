@@ -200,8 +200,12 @@ class LitMultiDimWav2Vec2(L.LightningModule):
         ),
         sbg.ChangeDtype(np.float32),
         StdSafeNormalize(
-          demean_axis= -1 if self.config.data_config.demean else None,
-          amp_norm_axis= -1 if self.config.data_config.amp_norm else None,
+          demean_axis=tuple(self.config.data_config.demean_axis) if isinstance(
+            self.config.data_config.demean_axis, list
+          ) else self.config.data_config.demean_axis,
+          amp_norm_axis=tuple(self.config.data_config.amp_norm_axis) if isinstance(
+              self.config.data_config.amp_norm_axis, list
+          ) else self.config.data_config.amp_norm_axis,
           amp_norm_type=self.config.data_config.amp_norm_type,
           eps=self.config.data_config.get('norm_eps', 1e-10),
         ),

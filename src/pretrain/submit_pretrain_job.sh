@@ -45,7 +45,7 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate /scicore/home/dokman0000/liu0003/miniconda3/envs/seisbench
 
 srun python3 pretrain_run.py \\
-  --config_path ${CONFIG_DIR}/${JOB_NAME}/std_norm_32bit_gradacc_low_temp_div_loss_1e-2.json \\
+  --config_path ${CONFIG_DIR}/${JOB_NAME}/pretrain_config_std_norm_two_axes.json \\
 EOT
 
 if [ "$TEST_RUN" = true ]; then

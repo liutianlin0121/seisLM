@@ -7,7 +7,11 @@ dataset_names = [
   # "NEIC",
   # "InstanceCounts",
   # "Iquique",
-  "MLAAPDE"
+  # "MLAAPDE"
+  "PNW",
+  "OBS",
+  "OBST2024",
+  "TXED"
 ]
 
 
