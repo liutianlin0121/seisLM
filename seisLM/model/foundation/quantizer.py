@@ -104,7 +104,8 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
   def forward(
     self,
     hidden_states: torch.Tensor,
-    mask_time_indices: Optional[torch.Tensor]
+    mask_time_indices: Optional[torch.Tensor],
+    return_selected_codevector_indices: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
     '''Forward pass.
 
@@ -210,4 +211,17 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
       v=self.num_vars,
     )
 
-    return codevectors, perplexity
+    if return_selected_codevector_indices:
+      # selected_codevector_indices: [B, L, G]
+      selected_codevector_indices = torch.argmax(
+        einops.rearrange(
+          codevector_probs, '(b l) (g v) -> b l g v',
+          b=batch_size,
+          l=sequence_length,
+          g=self.num_groups
+        ),
+        dim=-1
+      )
+      return codevectors, perplexity, selected_codevector_indices
+    else:
+      return codevectors, perplexity
