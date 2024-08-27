@@ -146,3 +146,39 @@ class DuplicateEvent:
                 state_dict[label_key[1]] = (y, metadata)
 
         state_dict[self.key[1]] = (x, metadata)
+
+
+
+class FillMissingComponents:
+  def __init__(self, key="X",):
+    if isinstance(key, str):
+      self.key = (key, key)
+    else:
+      self.key = key
+
+  def __call__(self, state_dict):
+    x, metadata = state_dict[self.key[0]]
+
+    if isinstance(x, list):
+      x = [self._fill_missing_component(y) for y in x]
+    else:
+      x = self._fill_missing_component(x)
+
+    state_dict[self.key[1]] = (x, metadata)
+
+  def _fill_missing_component(self, x):
+    std_devs = np.std(x, axis=1)
+
+    # Find rows with zero standard deviation
+    zero_std_rows = np.where(std_devs == 0)[0]
+    non_zero_std_rows = np.where(std_devs != 0)[0]
+
+    # If all rows or zero rows have zero standard deviation, return as is
+    if len(zero_std_rows) == 0 or len(zero_std_rows) == x.shape[0]:
+      return x
+
+    # Otherwise, randomly replace zero-std rows with non-zero std rows
+    for row_idx in zero_std_rows:
+      replacement_row = np.random.choice(non_zero_std_rows)
+      x[row_idx] = x[replacement_row]
+    return x

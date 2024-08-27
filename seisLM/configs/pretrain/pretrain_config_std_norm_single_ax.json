@@ -86,8 +86,8 @@
     "training_fraction": 1.0,
     "cache_dataset": null,
     "prefetch_factor": 2,
-    "demean_axis": [-1, -2],
-    "amp_norm_axis": [-1, -2],
+    "demean_axis": -1,
+    "amp_norm_axis": -1,
     "amp_norm_type": "std"
   }
 }

@@ -11,7 +11,8 @@ import lightning as L
 from lightning.pytorch.utilities import grad_norm
 import ml_collections
 import seisbench.generate as sbg
-from seisLM.data_pipeline.augmentations import StdSafeNormalize
+from seisLM.data_pipeline.augmentations import (
+  StdSafeNormalize, FillMissingComponents)
 from seisLM.model.foundation.multidim_wav2vec2 import MultiDimWav2Vec2ForPreTraining
 from seisLM.utils.data_utils import phase_dict
 
@@ -199,6 +200,7 @@ class LitMultiDimWav2Vec2(L.LightningModule):
             strategy="pad",
         ),
         sbg.ChangeDtype(np.float32),
+        FillMissingComponents(),
         StdSafeNormalize(
           demean_axis=tuple(self.config.data_config.demean_axis) if isinstance(
             self.config.data_config.demean_axis, list
