@@ -13,6 +13,7 @@ https://github.com/seisbench/pick-benchmark/blob/main/benchmark/models.py
 import math
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple
+import logging
 
 import einops
 import lightning as L
@@ -31,6 +32,8 @@ from seisLM.model.foundation import initialization, pretrained_models
 from seisLM.model.task_specific.shared_task_specific import (
     BaseMultiDimWav2Vec2ForDownstreamTasks, DoubleConvBlock)
 from seisLM.utils.data_utils import phase_dict
+from seisLM.data_pipeline.augmentations import FillMissingComponents
+
 
 
 def vector_cross_entropy(
@@ -356,9 +359,14 @@ class MultiDimWav2Vec2ForFrameClassificationLit(BasePhaseNetLikeLit):
         if hasattr(self.model.wav2vec2, "masked_spec_embed"):
           del self.model.wav2vec2.masked_spec_embed
 
-      self.model.wav2vec2.load_state_dict(
-          pretrained_model.wav2vec2.state_dict()
-      )
+      if model_config.get("initialize_from_pretrained_weights", True):
+        self.model.wav2vec2.load_state_dict(
+            pretrained_model.wav2vec2.state_dict()
+        )
+      else:
+        logging.warning("Skipping loading weights from pretrained model." +\
+          "Use randomly initialized weights instead.")
+
       del pretrained_model
       self.model_config = model_config
     else:
@@ -457,6 +465,7 @@ class MultiDimWav2Vec2ForFrameClassificationLit(BasePhaseNetLikeLit):
             strategy="pad",
         ),
         sbg.ChangeDtype(np.float32),
+        FillMissingComponents(),
         sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="std"),
         sbg.ProbabilisticLabeller(
             label_columns=phase_dict,
@@ -469,6 +478,7 @@ class MultiDimWav2Vec2ForFrameClassificationLit(BasePhaseNetLikeLit):
     return [
         sbg.SteeredWindow(windowlen=3001, strategy="pad"),
         sbg.ChangeDtype(np.float32),
+        FillMissingComponents(),
         sbg.Normalize(demean_axis=-1, amp_norm_axis=-1, amp_norm_type="std"),
     ]
 

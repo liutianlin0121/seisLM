@@ -9,8 +9,8 @@
 #SBATCH --output=phasepick.o%j   # Path and name to the file for the STDOUT
 #SBATCH --partition=a100         # Partition to allocate your job
 #SBATCH --qos=gpu1day               # Selected queue to allocate your job
-#SBATCH --time=0-12:00:00        # Maximum allocated time
-#SBATCH --array=0-9              # Array job with indices
+#SBATCH --time=0-24:00:00        # Maximum allocated time
+#SBATCH --array=0-4              # Array job with indices
 
 
 # TODO: REMEMBER TO EDIT THE ARRAY INDICES!!!
@@ -19,8 +19,11 @@ conda activate /scicore/home/dokman0000/liu0003/miniconda3/envs/seisbench
 
 # Define arrays for data names and training fractions
 configs=(
-  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/geofon_seisLM.json'
-  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_seisLM.json'
+  # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/geofon_rand_init_seisLM.json'
+  # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_rand_init_seisLM.json'
+  # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/geofon_seisLM.json'
+  # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_seisLM.json'
+  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/stead_seisLM.json'
 )
 
 training_fractions=(0.05 0.1 0.2 0.5 1.0)

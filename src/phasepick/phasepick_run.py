@@ -67,9 +67,8 @@ def train_phasepick(
   training_fraction = config.data_args.get("training_fraction", 1.0)
 
   model_cls = phasepick_models.__getattribute__(model_name + "Lit")
-  model = model_cls(
-    config.model_args, config.training_args
-  )
+
+  model = model_cls(config.model_args, config.training_args)
 
   train_loader, dev_loader = dataloaders.prepare_seisbench_dataloaders(
       model=model,
@@ -89,8 +88,7 @@ def train_phasepick(
     "%Y-%m-%d-%Hh-%Mm-%Ss", time.localtime(time.time())
   )
 
-  run_name = data_name + f"_train_frac_{training_fraction}" \
-        + f"_model_{model_name}" + f"_seed_{seed}" + f"_time_{formatted_time}"
+  run_name = f"_train_frac_{training_fraction}" + f"_time_{formatted_time}"
 
   logger = WandbLogger(
       # Groups related experiments together
@@ -105,7 +103,7 @@ def train_phasepick(
       # A unique identifier for the run
       id=f"{run_name_prefix}_{run_name}",
       save_code=True,
-      offline=config.get("wandb_offline", False),
+      offline=config.get("wandb_offline", True),
       save_dir=project_path.MODEL_SAVE_DIR,
       config=config,
   )

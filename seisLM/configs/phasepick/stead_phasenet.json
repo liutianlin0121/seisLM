@@ -1,0 +1,27 @@
+{
+  "model_name": "PhaseNet",
+  "data_args": {
+    "batch_size": 1024,
+    "data_name": "STEAD"
+  },
+  "training_args": {
+    "devices": 1,
+    "strategy": "ddp",
+    "accelerator": "gpu",
+    "max_epochs": 100,
+    "optimizer_args":
+      {
+        "lr": 1e-3,
+        "weight_decay": 0.0
+      }
+  },
+  "model_args": {
+    "sample_boundaries": [-1500, null],
+    "sigma": 20,
+    "kwargs": {}
+  },
+  "eval_args": {
+    "sets":  "test",
+    "batch_size": 32
+  }
+}
