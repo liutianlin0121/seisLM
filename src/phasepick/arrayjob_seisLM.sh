@@ -1,15 +1,15 @@
 #!/bin/bash
 
 #SBATCH --cpus-per-task=8        # Number of cores to reserve
-#SBATCH --gres=gpu:1             # Number of GPUs to reserve
+#SBATCH --gres=gpu:2             # Number of GPUs to reserve
 #SBATCH --job-name=phasepick     # Name of your job
 #SBATCH --mem-per-cpu=4G         # Amount of RAM/core to reserve
 #SBATCH --nodes=1                # Node count
-#SBATCH --ntasks-per-node=1      # Total number of tasks per node
+#SBATCH --ntasks-per-node=2      # Total number of tasks per node
 #SBATCH --output=phasepick.o%j   # Path and name to the file for the STDOUT
-#SBATCH --partition=a100         # Partition to allocate your job
-#SBATCH --qos=gpu1day               # Selected queue to allocate your job
-#SBATCH --time=0-24:00:00        # Maximum allocated time
+#SBATCH --partition=a100,rtx4090         # Partition to allocate your job
+#SBATCH --qos=gpu1week               # Selected queue to allocate your job
+#SBATCH --time=2-00:00:00        # Maximum allocated time
 #SBATCH --array=0-4              # Array job with indices
 
 
@@ -23,7 +23,8 @@ configs=(
   # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_rand_init_seisLM.json'
   # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/geofon_seisLM.json'
   # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_seisLM.json'
-  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/stead_seisLM.json'
+  # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/stead_seisLM.json'
+  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/stead_rand_init_seisLM.json'
 )
 
 training_fractions=(0.05 0.1 0.2 0.5 1.0)
