@@ -49,28 +49,28 @@ geofon_rand_init_seislm = {
   '1.0': "results/models/phasepick_run/geofon_rand_init_seisLM__train_frac_1.0_time_2024-08-28-14h-08m-52s/checkpoints/epoch=28-step=73080.ckpt",
 }
 
-stead_seislm = {
-  '0.05': "results/models/phasepick_run/stead_seisLM__train_frac_0.05_time_2024-08-28-17h-27m-18s/checkpoints/epoch=19-step=16640.ckpt",
-  '0.1': "results/models/phasepick_run/stead_seisLM__train_frac_0.1_time_2024-08-28-17h-27m-18s/checkpoints/epoch=12-step=21840.ckpt",
-  '0.2': "results/models/phasepick_run/stead_seisLM__train_frac_0.2_time_2024-08-28-17h-27m-23s/checkpoints/epoch=29-step=100800.ckpt",
-  '0.5': "results/models/phasepick_run/stead_seisLM__train_frac_0.5_time_2024-08-28-17h-28m-14s/checkpoints/epoch=28-step=243397.ckpt",
-  '1.0': "results/models/phasepick_run/stead_seisLM__train_frac_1.0_time_2024-08-28-17h-28m-25s/checkpoints/epoch=22-step=386607.ckpt",
-}
-
-# stead_rand_init_seislm = {
-#   '0.05':
-#   '0.1':
-#   '0.2':
-#   '0.5':
-#   '1.0':
+# stead_seislm = {
+#   '0.05': "results/models/phasepick_run/stead_seisLM__train_frac_0.05_time_2024-08-28-17h-27m-18s/checkpoints/epoch=19-step=16640.ckpt",
+#   '0.1': "results/models/phasepick_run/stead_seisLM__train_frac_0.1_time_2024-08-28-17h-27m-18s/checkpoints/epoch=12-step=21840.ckpt",
+#   '0.2': "results/models/phasepick_run/stead_seisLM__train_frac_0.2_time_2024-08-28-17h-27m-23s/checkpoints/epoch=29-step=100800.ckpt",
+#   '0.5': "results/models/phasepick_run/stead_seisLM__train_frac_0.5_time_2024-08-28-17h-28m-14s/checkpoints/epoch=28-step=243397.ckpt",
+#   '1.0': "results/models/phasepick_run/stead_seisLM__train_frac_1.0_time_2024-08-28-17h-28m-25s/checkpoints/epoch=22-step=386607.ckpt",
 # }
 
+stead_rand_init_seislm = {
+  '0.05': "results/models/phasepick_run/stead_rand_init_seisLM__train_frac_0.05_time_2024-08-29-19h-36m-16s/checkpoints/epoch=26-step=11232.ckpt",
+  '0.1': "results/models/phasepick_run/stead_rand_init_seisLM__train_frac_0.1_time_2024-08-29-19h-36m-16s/checkpoints/epoch=29-step=25200.ckpt",
+  '0.2': "results/models/phasepick_run/stead_rand_init_seisLM__train_frac_0.2_time_2024-08-29-19h-36m-01s/checkpoints/epoch=29-step=50400.ckpt",
+  '0.5': "results/models/phasepick_run/stead_rand_init_seisLM__train_frac_0.5_time_2024-08-29-19h-36m-02s/checkpoints/epoch=29-step=125880.ckpt",
+  '1.0': "results/models/phasepick_run/stead_rand_init_seisLM__train_frac_1.0_time_2024-08-29-19h-36m-12s/checkpoints/epoch=27-step=235312.ckpt"
+}
+
 stead_phasenet = {
-  '0.05': "results/models/phasepick_run/stead_phasenet_STEAD_train_frac_0.05_model_PhaseNet_seed_42_time_2024-08-28-10h-41m-31s/checkpoints/epoch=73-step=3848.ckpt",
-  '0.1': "results/models/phasepick_run/stead_phasenet_STEAD_train_frac_0.1_model_PhaseNet_seed_42_time_2024-08-28-10h-41m-31s/checkpoints/epoch=96-step=10185.ckpt",
-  '0.2': "results/models/phasepick_run/stead_phasenet__train_frac_0.2_time_2024-08-28-13h-56m-21s/checkpoints/epoch=80-step=17010.ckpt",
-  '0.5': "results/models/phasepick_run/stead_phasenet__train_frac_0.5_time_2024-08-28-13h-56m-20s/checkpoints/epoch=32-step=17292.ckpt",
-  '1.0': "results/models/phasepick_run/stead_phasenet__train_frac_1.0_time_2024-08-28-13h-56m-20s/checkpoints/epoch=3-step=4200.ckpt"
+  '0.05': "results/models/phasepick_run/stead_phasenet__train_frac_0.05_time_2024-08-29-19h-31m-01s/checkpoints/epoch=99-step=500.ckpt",
+  '0.1': "results/models/phasepick_run/stead_phasenet__train_frac_0.1_time_2024-08-29-19h-31m-01s/checkpoints/epoch=99-step=1000.ckpt",
+  '0.2': "results/models/phasepick_run/stead_phasenet__train_frac_0.2_time_2024-08-29-19h-30m-59s/checkpoints/epoch=84-step=1785.ckpt",
+  '0.5': "results/models/phasepick_run/stead_phasenet__train_frac_0.5_time_2024-08-29-19h-30m-43s/checkpoints/epoch=64-step=3445.ckpt",
+  '1.0': "results/models/phasepick_run/stead_phasenet__train_frac_1.0_time_2024-08-29-19h-30m-42s/checkpoints/epoch=62-step=6741.ckpt"
 }
 
 
@@ -87,6 +87,6 @@ ckpt_registry = {
   },
   'STEAD': {
     'PhaseNet': stead_phasenet,
-    'SeisLM': stead_seislm,
+    'rand_init_SeisLM': stead_rand_init_seislm
   },
 }

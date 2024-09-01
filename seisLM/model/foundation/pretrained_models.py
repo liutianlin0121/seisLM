@@ -1,4 +1,5 @@
 """Wav2Vec2 model."""
+import logging
 from collections import defaultdict
 from typing import Dict, List, Any
 import copy
@@ -183,9 +184,48 @@ class LitMultiDimWav2Vec2(L.LightningModule):
     return {"optimizer": optimizer, "lr_scheduler": sched_config}
 
   def get_train_augmentations(self) -> List:
+    augmentation_list = [
+        sbg.RandomWindow(
+            low=None,
+            high=None,
+            windowlen=3001,
+            strategy="pad",
+        ),
+        sbg.ChangeDtype(np.float32),
+        FillMissingComponents(),
+        StdSafeNormalize(
+          demean_axis=tuple(self.config.data_config.demean_axis) if isinstance(
+            self.config.data_config.demean_axis, list
+          ) else self.config.data_config.demean_axis,
+          amp_norm_axis=tuple(self.config.data_config.amp_norm_axis) if isinstance(
+              self.config.data_config.amp_norm_axis, list
+          ) else self.config.data_config.amp_norm_axis,
+          amp_norm_type=self.config.data_config.amp_norm_type,
+          eps=self.config.data_config.get('norm_eps', 1e-10),
+        ),
+    ]
+    if self.config.data_config.get('sample_around_picks', True):
+      # Select windows around picks to reduce the amount of noise traces in
+      # training.
+      augmentation_list.insert(
+        0,
+        sbg.WindowAroundSample(
+            list(phase_dict.keys()),
+            samples_before=3000,
+            windowlen=6000,
+            selection="random",
+            strategy="variable",
+        ),
+      )
+      logging.warning("Sampling around picks during training.")
+
+    print('train augmentation_list:', augmentation_list)
+    return augmentation_list
+
+  def get_val_augmentations(self) -> List:
+    # return self.get_train_augmentations()
     return [
-        # Select windows around picks to reduce the amount of noise traces in
-        # training.
+        # Select windows around picks to reduce the amount of noise traces
         sbg.WindowAroundSample(
             list(phase_dict.keys()),
             samples_before=3000,
@@ -212,6 +252,3 @@ class LitMultiDimWav2Vec2(L.LightningModule):
           eps=self.config.data_config.get('norm_eps', 1e-10),
         ),
     ]
-
-  def get_val_augmentations(self) -> List:
-    return self.get_train_augmentations()
