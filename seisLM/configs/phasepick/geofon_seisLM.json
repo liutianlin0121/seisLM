@@ -6,7 +6,7 @@
     "data_name": "GEOFON"
   },
   "training_args": {
-    "devices": 1,
+    "devices": 2,
     "strategy": "ddp",
     "accelerator": "gpu",
     "max_epochs": 30,
@@ -14,7 +14,7 @@
     "warmup_frac_step": 0.1,
     "optimizer_args":
       {
-        "lr": 5e-4,
+        "lr": 1e-3,
         "weight_decay": 0.1
       }
   },
@@ -32,7 +32,7 @@
     "freeze_feature_encoder": false,
     "freeze_base_model": false,
     "use_weighted_layer_sum": false,
-    "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_layernorm_std_small_batch_6_datasets_with_MLAAPDE_32bit_42__2024-08-19-16h-32m-52s/checkpoints/last.ckpt"
+    "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_std_norm_single_ax_8_datasets_sample_pick_false_42__2024-08-31-18h-41m-44s/checkpoints/last.ckpt"
   },
   "eval_args": {
     "sets":  "test",

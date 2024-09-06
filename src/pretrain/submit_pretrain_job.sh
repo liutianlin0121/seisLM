@@ -20,7 +20,8 @@ cat <<EOT > $SCRIPT_NAME
 #SBATCH --nodes=1                # Node count
 #SBATCH --ntasks-per-node=4      # Total number of tasks per node
 #SBATCH --output=${JOB_NAME}.o%j # Path and name to the file for the STDOUT
-#SBATCH --partition=a100         # Partition to allocate your job
+#SBATCH --partition=a100-80g         # Partition to allocate your job
+#SBATCH --reservation=liu0003    # Reservation to allocate your job
 EOT
 
 if [ "$TEST_RUN" = true ]; then
@@ -45,7 +46,7 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate /scicore/home/dokman0000/liu0003/miniconda3/envs/seisbench
 
 srun python3 pretrain_run.py \\
-  --config_path ${CONFIG_DIR}/${JOB_NAME}/pretrain_config_std_norm_single_ax_8_datasets_sample_pick_false.json \\
+  --config_path ${CONFIG_DIR}/${JOB_NAME}/pretrain_config_std_norm_single_ax_8_datasets_32bit_scaleup_samp_false_lowreg.json \\
 EOT
 
 if [ "$TEST_RUN" = true ]; then
