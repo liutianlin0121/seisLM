@@ -8,6 +8,32 @@ ethz_phasenet = {
   '1.0': 'results/models/phasepick_run/ethz_phasenet_ETHZ_train_frac_1.0_model_PhaseNet_seed_42_time_2024-08-18-20h-30m-04s/checkpoints/epoch=84-step=19975.ckpt',
 }
 
+ethz_seislm_base = {
+  '0.05': "results/models/phasepick_run/ethz_seisLM__train_frac_0.05_time_2024-09-06-07h-52m-01s/checkpoints/epoch=27-step=224.ckpt",
+  '0.1': "results/models/phasepick_run/ethz_seisLM__train_frac_0.1_time_2024-09-06-07h-52m-01s/checkpoints/epoch=25-step=624.ckpt",
+  '0.2': "results/models/phasepick_run/ethz_seisLM__train_frac_0.2_time_2024-09-06-07h-52m-04s/checkpoints/epoch=28-step=1160.ckpt",
+  '0.5': "results/models/phasepick_run/ethz_seisLM__train_frac_0.5_time_2024-09-06-07h-52m-04s/checkpoints/epoch=23-step=2040.ckpt",
+  '1.0': "results/models/phasepick_run/ethz_seisLM__train_frac_1.0_time_2024-09-06-07h-52m-04s/checkpoints/epoch=16-step=2992.ckpt"
+}
+
+ethz_rand_init_seislm_base = {
+  '0.05': "results/models/phasepick_run/ethz_rand_init_seisLM__train_frac_0.05_time_2024-08-28-14h-09m-57s/checkpoints/epoch=28-step=464.ckpt",
+  '0.1': "results/models/phasepick_run/ethz_rand_init_seisLM__train_frac_0.1_time_2024-08-28-14h-10m-33s/checkpoints/epoch=27-step=1344.ckpt",
+  '0.2': "results/models/phasepick_run/ethz_rand_init_seisLM__train_frac_0.2_time_2024-08-28-14h-10m-48s/checkpoints/epoch=29-step=2400.ckpt",
+  '0.5': "results/models/phasepick_run/ethz_rand_init_seisLM__train_frac_0.5_time_2024-08-28-14h-10m-49s/checkpoints/epoch=25-step=4446.ckpt",
+  '1.0': "results/models/phasepick_run/ethz_rand_init_seisLM__train_frac_1.0_time_2024-08-28-14h-14m-18s/checkpoints/epoch=25-step=9178.ckpt",
+}
+
+ethz_seislm_init_large = {
+  '0.05': "results/models/phasepick_run/ethz_rand_init_seisLM_large__train_frac_0.05_time_2024-09-06-10h-38m-24s/checkpoints/epoch=28-step=232.ckpt",
+  '0.1': "results/models/phasepick_run/ethz_rand_init_seisLM_large__train_frac_0.1_time_2024-09-06-10h-50m-18s/checkpoints/epoch=27-step=672.ckpt",
+  '0.2': "results/models/phasepick_run/ethz_rand_init_seisLM_large__train_frac_0.2_time_2024-09-06-11h-08m-03s/checkpoints/epoch=28-step=1160.ckpt",
+  '0.5': "results/models/phasepick_run/ethz_rand_init_seisLM_large__train_frac_0.5_time_2024-09-06-11h-21m-10s/checkpoints/epoch=24-step=2125.ckpt",
+  '1.0': "results/models/phasepick_run/ethz_rand_init_seisLM_large__train_frac_1.0_time_2024-09-06-11h-31m-42s/checkpoints/epoch=29-step=5280.ckpt"
+}
+
+
+
 geofon_phasenet = {
   '0.05': 'results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_0.05_model_PhaseNet_seed_42_time_2024-08-19-00h-36m-04s/checkpoints/epoch=54-step=4565.ckpt',
   "0.1": 'results/models/phasepick_run/geofon_phasenet_GEOFON_train_frac_0.1_model_PhaseNet_seed_42_time_2024-08-19-02h-10m-26s/checkpoints/epoch=54-step=9350.ckpt',
@@ -17,31 +43,16 @@ geofon_phasenet = {
 }
 
 
-ethz_seislm = {
-  '0.05': "results/models/phasepick_run/ethz_seisLM__train_frac_0.05_time_2024-08-28-14h-01m-06s/checkpoints/epoch=28-step=464.ckpt",
-  '0.1': "results/models/phasepick_run/ethz_seisLM__train_frac_0.1_time_2024-08-28-14h-01m-07s/checkpoints/epoch=20-step=1008.ckpt",
-  '0.2': "results/models/phasepick_run/ethz_seisLM__train_frac_0.2_time_2024-08-28-14h-01m-07s/checkpoints/epoch=21-step=1760.ckpt",
-  '0.5': "results/models/phasepick_run/ethz_seisLM__train_frac_0.5_time_2024-08-28-14h-01m-13s/checkpoints/epoch=19-step=3420.ckpt",
-  '1.0': "results/models/phasepick_run/ethz_seisLM__train_frac_1.0_time_2024-08-28-14h-05m-56s/checkpoints/epoch=15-step=5648.ckpt",
+geofon_seislm_base = {
+  '0.05': "results/models/phasepick_run/geofon_seisLM__train_frac_0.05_time_2024-09-06-07h-52m-01s/checkpoints/epoch=20-step=1302.ckpt",
+  '0.1': "results/models/phasepick_run/geofon_seisLM__train_frac_0.1_time_2024-09-06-07h-52m-03s/checkpoints/epoch=16-step=2159.ckpt",
+  '0.2': "results/models/phasepick_run/geofon_seisLM__train_frac_0.2_time_2024-09-06-07h-52m-03s/checkpoints/epoch=18-step=4712.ckpt",
+  '0.5': "results/models/phasepick_run/geofon_seisLM__train_frac_0.5_time_2024-09-06-07h-52m-03s/checkpoints/epoch=15-step=10144.ckpt",
+  '1.0': "results/models/phasepick_run/geofon_seisLM__train_frac_1.0_time_2024-09-06-07h-52m-03s/checkpoints/epoch=26-step=34020.ckpt"
 }
 
-geofon_seislm = {
-  '0.05': "results/models/phasepick_run/geofon_seisLM__train_frac_0.05_time_2024-08-28-13h-55m-52s/checkpoints/epoch=21-step=2728.ckpt",
-  '0.1': "results/models/phasepick_run/geofon_seisLM__train_frac_0.1_time_2024-08-28-13h-56m-16s/checkpoints/epoch=16-step=4335.ckpt",
-  '0.2': "results/models/phasepick_run/geofon_seisLM__train_frac_0.2_time_2024-08-28-13h-56m-16s/checkpoints/epoch=18-step=9424.ckpt",
-  '0.5': "results/models/phasepick_run/geofon_seisLM__train_frac_0.5_time_2024-08-28-13h-59m-23s/checkpoints/epoch=15-step=20304.ckpt",
-  '1.0': "results/models/phasepick_run/geofon_seisLM__train_frac_1.0_time_2024-08-28-14h-01m-08s/checkpoints/epoch=23-step=60480.ckpt",
-}
 
-ethz_rand_init_seislm = {
-  '0.05': "results/models/phasepick_run/ethz_rand_init_seisLM__train_frac_0.05_time_2024-08-28-14h-09m-57s/checkpoints/epoch=28-step=464.ckpt",
-  '0.1': "results/models/phasepick_run/ethz_rand_init_seisLM__train_frac_0.1_time_2024-08-28-14h-10m-33s/checkpoints/epoch=27-step=1344.ckpt",
-  '0.2': "results/models/phasepick_run/ethz_rand_init_seisLM__train_frac_0.2_time_2024-08-28-14h-10m-48s/checkpoints/epoch=29-step=2400.ckpt",
-  '0.5': "results/models/phasepick_run/ethz_rand_init_seisLM__train_frac_0.5_time_2024-08-28-14h-10m-49s/checkpoints/epoch=25-step=4446.ckpt",
-  '1.0': "results/models/phasepick_run/ethz_rand_init_seisLM__train_frac_1.0_time_2024-08-28-14h-14m-18s/checkpoints/epoch=25-step=9178.ckpt",
-}
-
-geofon_rand_init_seislm = {
+geofon_rand_init_seislm_base = {
   '0.05': "results/models/phasepick_run/geofon_rand_init_seisLM__train_frac_0.05_time_2024-08-28-14h-07m-18s/checkpoints/epoch=29-step=3720.ckpt",
   '0.1': "results/models/phasepick_run/geofon_rand_init_seisLM__train_frac_0.1_time_2024-08-28-14h-07m-39s/checkpoints/epoch=29-step=7650.ckpt",
   '0.2': "results/models/phasepick_run/geofon_rand_init_seisLM__train_frac_0.2_time_2024-08-28-14h-07m-52s/checkpoints/epoch=28-step=14384.ckpt",
@@ -49,15 +60,26 @@ geofon_rand_init_seislm = {
   '1.0': "results/models/phasepick_run/geofon_rand_init_seisLM__train_frac_1.0_time_2024-08-28-14h-08m-52s/checkpoints/epoch=28-step=73080.ckpt",
 }
 
-# stead_seislm = {
-#   '0.05': "results/models/phasepick_run/stead_seisLM__train_frac_0.05_time_2024-08-28-17h-27m-18s/checkpoints/epoch=19-step=16640.ckpt",
-#   '0.1': "results/models/phasepick_run/stead_seisLM__train_frac_0.1_time_2024-08-28-17h-27m-18s/checkpoints/epoch=12-step=21840.ckpt",
-#   '0.2': "results/models/phasepick_run/stead_seisLM__train_frac_0.2_time_2024-08-28-17h-27m-23s/checkpoints/epoch=29-step=100800.ckpt",
-#   '0.5': "results/models/phasepick_run/stead_seisLM__train_frac_0.5_time_2024-08-28-17h-28m-14s/checkpoints/epoch=28-step=243397.ckpt",
-#   '1.0': "results/models/phasepick_run/stead_seisLM__train_frac_1.0_time_2024-08-28-17h-28m-25s/checkpoints/epoch=22-step=386607.ckpt",
-# }
 
-stead_rand_init_seislm = {
+geofon_seislm_init_large = {
+  '0.05': "results/models/phasepick_run/geofon_rand_init_seisLM_large__train_frac_0.05_time_2024-09-06-10h-38m-25s/checkpoints/epoch=25-step=1612.ckpt",
+  '0.1': "results/models/phasepick_run/geofon_rand_init_seisLM_large__train_frac_0.1_time_2024-09-06-10h-38m-26s/checkpoints/epoch=24-step=3175.ckpt",
+  '0.2': "results/models/phasepick_run/geofon_rand_init_seisLM_large__train_frac_0.2_time_2024-09-06-10h-38m-26s/checkpoints/epoch=11-step=2976.ckpt",
+  '0.5': "results/models/phasepick_run/geofon_rand_init_seisLM_large__train_frac_0.5_time_2024-09-06-10h-38m-27s/checkpoints/epoch=24-step=15850.ckpt",
+  '1.0': "results/models/phasepick_run/geofon_rand_init_seisLM_large__train_frac_1.0_time_2024-09-06-10h-38m-27s/checkpoints/epoch=22-step=28980.ckpt",
+}
+
+
+stead_seislm_base = {
+  '0.05': "results/models/phasepick_run/stead_seisLM__train_frac_0.05_time_2024-09-06-07h-52m-14s/checkpoints/epoch=18-step=7904.ckpt",
+  '0.1': "results/models/phasepick_run/stead_seisLM__train_frac_0.1_time_2024-09-06-07h-52m-14s/checkpoints/epoch=20-step=17640.ckpt",
+  '0.2': "results/models/phasepick_run/stead_seisLM__train_frac_0.2_time_2024-09-06-07h-52m-14s/checkpoints/epoch=29-step=50400.ckpt",
+  '0.5': "results/models/phasepick_run/stead_seisLM__train_frac_0.5_time_2024-09-06-07h-56m-40s/checkpoints/epoch=29-step=125880.ckpt",
+  '1.0': "results/models/phasepick_run/stead_seisLM__train_frac_1.0_time_2024-09-06-07h-58m-16s/checkpoints/epoch=27-step=235312.ckpt"
+}
+
+
+stead_rand_init_seislm_base = {
   '0.05': "results/models/phasepick_run/stead_rand_init_seisLM__train_frac_0.05_time_2024-08-29-19h-36m-16s/checkpoints/epoch=26-step=11232.ckpt",
   '0.1': "results/models/phasepick_run/stead_rand_init_seisLM__train_frac_0.1_time_2024-08-29-19h-36m-16s/checkpoints/epoch=29-step=25200.ckpt",
   '0.2': "results/models/phasepick_run/stead_rand_init_seisLM__train_frac_0.2_time_2024-08-29-19h-36m-01s/checkpoints/epoch=29-step=50400.ckpt",
@@ -77,16 +99,20 @@ stead_phasenet = {
 ckpt_registry = {
   'ETHZ': {
     'PhaseNet': ethz_phasenet,
-    'rand_init_SeisLM': ethz_rand_init_seislm,
-    'SeisLM': ethz_seislm,
+    'SeisLM_base': ethz_seislm_base,
+    'Rand_init_SeisLM_base': ethz_rand_init_seislm_base,
+    'Rand_init_SeisLM_large': ethz_seislm_init_large,
   },
   'GEOFON': {
     'PhaseNet': geofon_phasenet,
-    'rand_init_SeisLM': geofon_rand_init_seislm,
-    'SeisLM': geofon_seislm,
+    'Rand_init_SeisLM_base': geofon_rand_init_seislm_base,
+    'SeisLM_base': geofon_seislm_base,
+    # 'Rand_init_SeisLM_large': geofon_seislm_init_large,
   },
   'STEAD': {
     'PhaseNet': stead_phasenet,
-    'rand_init_SeisLM': stead_rand_init_seislm
+    'SeisLM_base': stead_seislm_base,
+    'Rand_init_SeisLM_base': stead_rand_init_seislm_base,
+    # 'Rand_init_SeisLM_large': stead_rand_init_seislm_large
   },
 }
