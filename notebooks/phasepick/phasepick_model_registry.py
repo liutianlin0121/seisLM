@@ -101,7 +101,7 @@ ckpt_registry = {
     'PhaseNet': ethz_phasenet,
     'SeisLM_base': ethz_seislm_base,
     'Rand_init_SeisLM_base': ethz_rand_init_seislm_base,
-    'Rand_init_SeisLM_large': ethz_seislm_init_large,
+    # 'Rand_init_SeisLM_large': ethz_seislm_init_large,
   },
   'GEOFON': {
     'PhaseNet': geofon_phasenet,
@@ -115,4 +115,40 @@ ckpt_registry = {
     'Rand_init_SeisLM_base': stead_rand_init_seislm_base,
     # 'Rand_init_SeisLM_large': stead_rand_init_seislm_large
   },
+}
+
+## Plotting kwargs
+
+phasenet_kwargs = {
+  'color': '#fc8d59',
+  'linestyle': '--',
+  'marker': 'o',
+  'lw': 2,
+}
+
+seislm_base_kwargs = {
+  'color': '#1b7837',
+  'linestyle': '-',
+  'marker': '^',
+  'lw': 2,
+}
+
+random_init_seislm_base_kwargs = {
+  'color': 'gray',
+  'linestyle': '--',
+  'marker': 's',
+  'lw': 2,
+}
+
+random_init_seislm_large_kwargs = {
+  'color': 'black',
+  'linestyle': '-',
+  'lw': 2,
+}
+
+plot_kwargs = {
+  'PhaseNet': phasenet_kwargs,
+  'SeisLM_base': seislm_base_kwargs,
+  'Rand_init_SeisLM_base': random_init_seislm_base_kwargs,
+  'Rand_init_SeisLM_large': random_init_seislm_large_kwargs,
 }
