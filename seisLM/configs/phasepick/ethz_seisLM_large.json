@@ -1,0 +1,41 @@
+{
+  "model_name": "MultiDimWav2Vec2ForFrameClassification",
+  "wandb_offline": true,
+  "data_args": {
+    "batch_size": 64,
+    "data_name": "ETHZ"
+  },
+  "training_args": {
+    "devices": 2,
+    "strategy": "ddp",
+    "accelerator": "gpu",
+    "max_epochs": 30,
+    "optimizer": "adamw",
+    "warmup_frac_step": 0.1,
+    "optimizer_args":
+      {
+        "lr": 1e-3,
+        "weight_decay": 0.1
+      }
+  },
+  "model_args": {
+    "sample_boundaries": [null, null],
+    "sigma": 20,
+    "num_labels": 3,
+    "apply_spec_augment": true,
+    "mask_time_prob": 0.0,
+    "mask_feature_prob": 0.2,
+    "mask_feature_length": 10,
+    "layerdrop": 0.0,
+    "wav2vec2_dropout_rate": 0.0,
+    "head_dropout_rate": 0.2,
+    "freeze_feature_encoder": false,
+    "freeze_base_model": false,
+    "use_weighted_layer_sum": false,
+    "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_std_norm_single_ax_8_datasets_32bit_scaleup_samp_false_42__2024-09-01-23h-26m-07s/checkpoints/epoch=36-step=649091.ckpt"
+  },
+  "eval_args": {
+    "sets":  "test",
+    "batch_size": 32
+  }
+}

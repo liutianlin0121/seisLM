@@ -32,6 +32,13 @@ ethz_seislm_init_large = {
   '1.0': "results/models/phasepick_run/ethz_rand_init_seisLM_large__train_frac_1.0_time_2024-09-06-11h-31m-42s/checkpoints/epoch=29-step=5280.ckpt"
 }
 
+ethz_seislm_large = {
+  '0.05': "results/models/phasepick_run/ethz_seisLM_large__train_frac_0.05_time_2024-09-09-08h-07m-36s/checkpoints/epoch=25-step=208.ckpt",
+  '0.1': "results/models/phasepick_run/ethz_seisLM_large__train_frac_0.1_time_2024-09-09-08h-07m-36s/checkpoints/epoch=27-step=672.ckpt",
+  '0.2': "results/models/phasepick_run/ethz_seisLM_large__train_frac_0.2_time_2024-09-09-08h-07m-36s/checkpoints/epoch=24-step=1000.ckpt",
+  '0.5': "results/models/phasepick_run/ethz_seisLM_large__train_frac_0.5_time_2024-09-09-08h-07m-36s/checkpoints/epoch=21-step=1870.ckpt",
+  '1.0': "results/models/phasepick_run/ethz_seisLM_large__train_frac_1.0_time_2024-09-09-08h-07m-36s/checkpoints/epoch=17-step=3168.ckpt"
+}
 
 
 geofon_phasenet = {
@@ -58,6 +65,14 @@ geofon_rand_init_seislm_base = {
   '0.2': "results/models/phasepick_run/geofon_rand_init_seisLM__train_frac_0.2_time_2024-08-28-14h-07m-52s/checkpoints/epoch=28-step=14384.ckpt",
   '0.5': "results/models/phasepick_run/geofon_rand_init_seisLM__train_frac_0.5_time_2024-08-28-14h-08m-46s/checkpoints/epoch=28-step=36801.ckpt",
   '1.0': "results/models/phasepick_run/geofon_rand_init_seisLM__train_frac_1.0_time_2024-08-28-14h-08m-52s/checkpoints/epoch=28-step=73080.ckpt",
+}
+
+geofon_seislm_large = {
+  '0.05': "results/models/phasepick_run/geofon_seisLM_large__train_frac_0.05_time_2024-09-09-08h-07m-38s/checkpoints/epoch=16-step=1054.ckpt",
+  '0.1': "results/models/phasepick_run/geofon_seisLM_large__train_frac_0.1_time_2024-09-09-08h-07m-38s/checkpoints/epoch=10-step=1397.ckpt",
+  '0.2': "results/models/phasepick_run/geofon_seisLM_large__train_frac_0.2_time_2024-09-09-08h-07m-38s/checkpoints/epoch=11-step=2976.ckpt",
+  '0.5': "results/models/phasepick_run/geofon_seisLM_large__train_frac_0.5_time_2024-09-09-08h-07m-37s/checkpoints/epoch=13-step=8876.ckpt",
+  '1.0': "results/models/phasepick_run/geofon_seisLM_large__train_frac_1.0_time_2024-09-09-08h-07m-37s/checkpoints/epoch=12-step=16380.ckpt"
 }
 
 
@@ -101,12 +116,14 @@ ckpt_registry = {
     'PhaseNet': ethz_phasenet,
     'SeisLM_base': ethz_seislm_base,
     'Rand_init_SeisLM_base': ethz_rand_init_seislm_base,
-    # 'Rand_init_SeisLM_large': ethz_seislm_init_large,
+    'Rand_init_SeisLM_large': ethz_seislm_init_large,
+    'SeisLM_large': ethz_seislm_large,
   },
   'GEOFON': {
     'PhaseNet': geofon_phasenet,
     'Rand_init_SeisLM_base': geofon_rand_init_seislm_base,
     'SeisLM_base': geofon_seislm_base,
+    "SeisLM_large": geofon_seislm_large,
     # 'Rand_init_SeisLM_large': geofon_seislm_init_large,
   },
   'STEAD': {
@@ -127,9 +144,16 @@ phasenet_kwargs = {
 }
 
 seislm_base_kwargs = {
-  'color': '#1b7837',
+  'color': '#74c476',
   'linestyle': '-',
   'marker': '^',
+  'lw': 2,
+}
+
+seislm_large_kwargs = {
+  'color': '#006d2c',
+  'linestyle': '-',
+  'marker': 's',
   'lw': 2,
 }
 
@@ -142,13 +166,14 @@ random_init_seislm_base_kwargs = {
 
 random_init_seislm_large_kwargs = {
   'color': 'black',
-  'linestyle': '-',
+  'linestyle': '-.',
   'lw': 2,
 }
 
 plot_kwargs = {
   'PhaseNet': phasenet_kwargs,
   'SeisLM_base': seislm_base_kwargs,
+  'SeisLM_large': seislm_large_kwargs,
   'Rand_init_SeisLM_base': random_init_seislm_base_kwargs,
   'Rand_init_SeisLM_large': random_init_seislm_large_kwargs,
 }

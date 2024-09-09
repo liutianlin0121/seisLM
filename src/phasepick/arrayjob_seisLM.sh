@@ -25,9 +25,12 @@ configs=(
   # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/geofon_seisLM.json'
   # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_seisLM.json'
   # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/stead_seisLM.json'
-  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/geofon_rand_init_seisLM_large.json'
-  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_rand_init_seisLM_large.json'
-  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/stead_rand_init_seisLM_large.json'
+  # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/geofon_rand_init_seisLM_large.json'
+  # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_rand_init_seisLM_large.json'
+  # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/stead_rand_init_seisLM_large.json'
+  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/geofon_seisLM_large.json'
+  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_seisLM_large.json'
+  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/stead_seisLM_large.json'
 )
 
 training_fractions=(0.05 0.1 0.2 0.5 1.0)
