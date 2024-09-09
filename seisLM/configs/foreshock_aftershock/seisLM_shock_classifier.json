@@ -2,7 +2,7 @@
   "model_name": "Wav2Vec2ForSequenceClassification",
   "data_args": {
     "num_workers": 8,
-    "batch_size": 32,
+    "batch_size": 16,
     "event_split_method": "temporal",
     "component_order": "ZNE",
     "seed": 42,
@@ -24,7 +24,7 @@
     "unfreeze_base_at_epoch": 0,
     "optimizer_args":
       {
-        "lr": 1e-3,
+        "lr": 3e-4,
         "weight_decay": 0.1
       }
   },
@@ -35,6 +35,6 @@
     "freeze_feature_encoder": true,
     "freeze_base_model": false,
     "use_weighted_layer_sum": false,
-    "pretrained_ckpt_path":  "/home/liu0003/Desktop/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_layernorm_std_small_batch_6_datasets_42__2024-08-14-09h-06m-17s/checkpoints/last.ckpt"
+    "pretrained_ckpt_path": "/home/liu0003/Desktop/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_std_norm_single_ax_8_datasets_32bit_scaleup_samp_false_42__2024-09-01-23h-26m-07s/checkpoints/epoch=39-step=701720.ckpt"
   }
 }

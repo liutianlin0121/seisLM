@@ -1,7 +1,7 @@
 """ Models for the foreshock-aftershock classification task. """
-import copy
 import math
-from typing import Tuple, Union, Sequence
+import logging
+from typing import Tuple, Union
 
 import einops
 import lightning as L
@@ -270,44 +270,58 @@ class Wav2vec2ShockClassifierLit(BaseShockClassifierLit):
   def __init__(
     self,
     model_config: ml_collections.ConfigDict,
-    training_config: ml_collections.ConfigDict
+    training_config: ml_collections.ConfigDict,
+    load_pretrained: bool = True
     ):
     super().__init__(model_config, training_config)
-    self.save_hyperparameters()
     self.training_config = training_config
 
-    pretrained_model = pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
-        model_config.pretrained_ckpt_path
-    ).model
+    if load_pretrained:
+      pretrained_model = pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
+          model_config.pretrained_ckpt_path
+      ).model
 
-    ## TODO: temp fix for the config issue
-    new_config = pretrained_model.config
-    for key, value in model_config.items():
-      setattr(new_config, key, value)
+      new_config = pretrained_model.config
+      for key, value in model_config.items():
+        setattr(new_config, key, value)
 
-    # for key, value in new_config.to_dict().items():
-    #   if ('dropout' in key) and ('attention' not in key) and ('quantizer' not in key):
-    #     new_value = model_config.dropout_rate
-    #     print(f'Orig. {key} value: {value}. New value: {new_value}')
-    #     setattr(new_config, key, new_value)
+      model_config = new_config
+      self.model = Wav2Vec2ForSequenceClassification(model_config)
 
-    model_config = new_config
-    self.model = Wav2Vec2ForSequenceClassification(model_config)
+      if (not model_config.apply_spec_augment) or (
+        model_config.mask_time_prob == 0.0
+      ):
+        # in this case, we don't need the masked spec embed
+        # so we can remove it from both models.
+        if hasattr(pretrained_model.wav2vec2, "masked_spec_embed"):
+          del pretrained_model.wav2vec2.masked_spec_embed
 
-    if (not model_config.apply_spec_augment) or (
-      model_config.mask_time_prob == 0.0
-    ):
-      # in this case, we don't need the masked spec embed
-      # so we can remove it from both models.
-      if hasattr(pretrained_model.wav2vec2, "masked_spec_embed"):
-        del pretrained_model.wav2vec2.masked_spec_embed
+        if hasattr(self.model.wav2vec2, "masked_spec_embed"):
+          del self.model.wav2vec2.masked_spec_embed
 
-      if hasattr(self.model.wav2vec2, "masked_spec_embed"):
-        del self.model.wav2vec2.masked_spec_embed
+      if model_config.get("initialize_from_pretrained_weights", True):
+        self.model.wav2vec2.load_state_dict(
+            pretrained_model.wav2vec2.state_dict()
+        )
+      else:
+        logging.warning("Skipping loading weights from pretrained model." +\
+          "Use randomly initialized weights instead.")
 
-    self.model.wav2vec2.load_state_dict(
-        pretrained_model.wav2vec2.state_dict()
-    )
+      del pretrained_model
+    else:
+      self.model = Wav2Vec2ForSequenceClassification(model_config)
+
+      if (not model_config.apply_spec_augment) or (
+        model_config.mask_time_prob == 0.0
+      ):
+        # Remove masked_spec_embed from the instantiated models.
+        if hasattr(self.model.wav2vec2, "masked_spec_embed"):
+          del self.model.wav2vec2.masked_spec_embed
+
+    # We save the hyperparameter after the model is instantiated.
+    # This is because the model_config could get updated after loading the
+    # pretrained model.
+    self.save_hyperparameters()
 
     if model_config.freeze_feature_encoder:
       self.model.freeze_feature_encoder()
@@ -321,7 +335,6 @@ class Wav2vec2ShockClassifierLit(BaseShockClassifierLit):
         "It's unconventional to freeze the base model" \
         "without freezing the feature encoder.")
 
-    del pretrained_model
     self.model_config = model_config
 
 
