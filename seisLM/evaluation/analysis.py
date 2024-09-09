@@ -47,14 +47,15 @@ def compute_separation_fuzziness(
   SSB /= num_samples
   SSW /= num_samples
 
-  # Regularization term to prevent issues with SSB
-  regularization_term = 1e-8 * np.eye(feature_dim)
-  SSB += regularization_term
 
   # Compute the separation fuzziness metric
   if use_trace_division:
     D = np.trace(SSW) / np.trace(SSB)
+    print(f'Trace of SSW: {np.trace(SSW): .2f}, Trace of SSB: {np.trace(SSB): .2f}')
   else:
+    # Regularization term to prevent issues with SSB
+    # regularization_term = 1e-8 * np.eye(feature_dim)
+    # SSB += regularization_term
     D = np.trace(SSW @ np.linalg.pinv(SSB))
 
   if D <= 0:
