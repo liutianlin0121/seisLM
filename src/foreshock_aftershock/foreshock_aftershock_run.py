@@ -78,10 +78,9 @@ def train_foreshock_aftershock(
     config.data_args.train_frac / BASE_TRAINING_FRACTION, 3
   )
 
-  run_name = f"num_classes_{config.model_args.num_classes}_seed_{seed}"\
-    + f"_training_fraction_{relative_fraction}"\
-    + f"_model_{config.model_name}"\
-    + f"_time_{formatted_time}"
+  run_name = f"nc_{config.model_args.num_classes}"\
+    + f"_frac_{relative_fraction}"\
+    + f"_{formatted_time}"
 
   logger = WandbLogger(
       # Groups related experiments together
@@ -89,10 +88,12 @@ def train_foreshock_aftershock(
       # Describes a specific experiment within the project
       name=f"{run_name_prefix}_{run_name}",
       # Filter runs based on keywords or categories.
-      tags=[f"model_{config.model_name}",
-            f"num_classes_{config.model_args.num_classes}_train_frac_{relative_fraction}"],
+      tags=[
+            f"num_classes_{config.model_args.num_classes}_train_frac_{relative_fraction}",
+            f"model_{config.model_name}",
+      ],
       # A unique identifier for the run
-      id=run_name,
+      id=f"{run_name_prefix}_{run_name}",
       save_code=True,
       offline=config.get("wandb_offline", True),
       save_dir=project_path.MODEL_SAVE_DIR,

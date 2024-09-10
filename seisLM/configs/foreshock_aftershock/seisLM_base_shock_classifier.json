@@ -25,7 +25,7 @@
     "unfreeze_base_at_epoch": 0,
     "optimizer_args":
       {
-        "lr": 5e-4,
+        "lr": 4e-4,
         "weight_decay": 0.1
       }
   },

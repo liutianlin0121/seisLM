@@ -146,7 +146,7 @@ ckpt_registry = {
 
 phasenet_kwargs = {
   'color': '#fc8d59',
-  'linestyle': '--',
+  'linestyle': '-',
   'marker': 'o',
   'lw': 2,
 }
@@ -160,7 +160,7 @@ seislm_base_kwargs = {
 
 seislm_large_kwargs = {
   'color': '#006d2c',
-  'linestyle': '-',
+  'linestyle': '-.',
   'marker': 's',
   'lw': 2,
 }
