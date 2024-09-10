@@ -1,4 +1,5 @@
 {
+  "wandb_offline": true,
   "model_name": "Conv1DShockClassifier",
   "data_args": {
     "num_workers": 8,
@@ -15,7 +16,7 @@
     "amp_norm_type": "std"
   },
   "trainer_args": {
-    "devices": 1,
+    "devices": 2,
     "strategy": "ddp",
     "accelerator": "gpu",
     "max_epochs": 100,

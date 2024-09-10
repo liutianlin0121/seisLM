@@ -36,6 +36,6 @@
     "freeze_feature_encoder": true,
     "freeze_base_model": false,
     "use_weighted_layer_sum": false,
-    "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_std_norm_single_ax_8_datasets_32bit_scaleup_samp_false_42__2024-09-01-23h-26m-07s/checkpoints/epoch=39-step=701720.ckpt"
+    "pretrained_ckpt_path": "/scicore/home/dokman0000/liu0003/projects/seisLM/results/models/pretrained_seisLM/pretrain_config_std_norm_single_ax_8_datasets_sample_pick_false_42__2024-08-31-18h-41m-44s/checkpoints/epoch=39-step=1203000.ckpt"
   }
 }

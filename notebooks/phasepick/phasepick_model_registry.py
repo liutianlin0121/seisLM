@@ -93,6 +93,13 @@ stead_seislm_base = {
   '1.0': "results/models/phasepick_run/stead_seisLM__train_frac_1.0_time_2024-09-06-07h-58m-16s/checkpoints/epoch=27-step=235312.ckpt"
 }
 
+stead_seislm_large = {
+  '0.05': "results/models/phasepick_run/stead_seisLM__train_frac_0.05_time_2024-09-06-07h-52m-14s/checkpoints/epoch=18-step=7904.ckpt",
+  '0.1': "results/models/phasepick_run/stead_seisLM__train_frac_0.1_time_2024-09-06-07h-52m-14s/checkpoints/epoch=20-step=17640.ckpt",
+  '0.2': "results/models/phasepick_run/stead_seisLM__train_frac_0.2_time_2024-09-06-07h-52m-14s/checkpoints/epoch=29-step=50400.ckpt",
+  '0.5': "results/models/phasepick_run/stead_seisLM__train_frac_0.5_time_2024-09-06-07h-56m-40s/checkpoints/epoch=29-step=125880.ckpt",
+  '1.0': "results/models/phasepick_run/stead_seisLM__train_frac_1.0_time_2024-09-06-07h-58m-16s/checkpoints/epoch=27-step=235312.ckpt"
+}
 
 stead_rand_init_seislm_base = {
   '0.05': "results/models/phasepick_run/stead_rand_init_seisLM__train_frac_0.05_time_2024-08-29-19h-36m-16s/checkpoints/epoch=26-step=11232.ckpt",
@@ -114,23 +121,24 @@ stead_phasenet = {
 ckpt_registry = {
   'ETHZ': {
     'PhaseNet': ethz_phasenet,
-    'SeisLM_base': ethz_seislm_base,
     'Rand_init_SeisLM_base': ethz_rand_init_seislm_base,
-    'Rand_init_SeisLM_large': ethz_seislm_init_large,
+    # 'Rand_init_SeisLM_large': ethz_seislm_init_large,
+    'SeisLM_base': ethz_seislm_base,
     'SeisLM_large': ethz_seislm_large,
   },
   'GEOFON': {
     'PhaseNet': geofon_phasenet,
     'Rand_init_SeisLM_base': geofon_rand_init_seislm_base,
+    # 'Rand_init_SeisLM_large': geofon_seislm_init_large,
     'SeisLM_base': geofon_seislm_base,
     "SeisLM_large": geofon_seislm_large,
-    # 'Rand_init_SeisLM_large': geofon_seislm_init_large,
   },
   'STEAD': {
     'PhaseNet': stead_phasenet,
-    'SeisLM_base': stead_seislm_base,
     'Rand_init_SeisLM_base': stead_rand_init_seislm_base,
     # 'Rand_init_SeisLM_large': stead_rand_init_seislm_large
+    'SeisLM_base': stead_seislm_base,
+    'SeisLM_large': stead_seislm_large,
   },
 }
 

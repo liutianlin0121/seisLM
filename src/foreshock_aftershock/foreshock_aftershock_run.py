@@ -39,6 +39,7 @@ def train_foreshock_aftershock(
   config: ml_collections.ConfigDict,
   task_name: str,
   save_checkpoint: bool = False,
+  run_name_prefix: str = "",
   ) -> None:
   """Runs the model training defined by the config.
   """
@@ -86,10 +87,10 @@ def train_foreshock_aftershock(
       # Groups related experiments together
       project=task_name,
       # Describes a specific experiment within the project
-      name=run_name,
+      name=f"{run_name_prefix}_{run_name}",
       # Filter runs based on keywords or categories.
       tags=[f"model_{config.model_name}",
-            f"num_classes_{config.model_args.num_classes}"],
+            f"num_classes_{config.model_args.num_classes}_train_frac_{relative_fraction}"],
       # A unique identifier for the run
       id=run_name,
       save_code=True,
@@ -180,6 +181,8 @@ if __name__ == "__main__":
   with open(args.config, "r", encoding="utf-8") as f:
     config = json.load(f)
   config = ml_collections.ConfigDict(config)
+  run_name_prefix = args.config.split("/")[-1].split(".")[0]
+
 
   if hasattr(config.model_args, "layerdrop") and (
     config.model_args.layerdrop > 0):
@@ -194,7 +197,12 @@ if __name__ == "__main__":
   task_name = os.path.basename(__file__)[: -len(".py")]
 
   try:
-    train_foreshock_aftershock(config, task_name, args.save_checkpoints)
+    train_foreshock_aftershock(
+      config,
+      task_name,
+      args.save_checkpoints,
+      run_name_prefix,
+      )
 
   except Exception as e:
     traceback.print_exc()
