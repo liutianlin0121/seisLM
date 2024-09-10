@@ -10,7 +10,7 @@
 #SBATCH --partition=a100         # Partition to allocate your job
 #SBATCH --qos=gpu1week               # Selected queue to allocate your job
 #SBATCH --time=2-00:00:00        # Maximum allocated time
-#SBATCH --array=0-14              # Array job with indices
+#SBATCH --array=0-4              # Array job with indices
 
 
 # TODO: REMEMBER TO EDIT THE ARRAY INDICES!!!
@@ -29,8 +29,8 @@ configs=(
   # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_rand_init_seisLM_large.json'
   # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/stead_rand_init_seisLM_large.json'
   '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/geofon_seisLM_large.json'
-  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_seisLM_large.json'
-  '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/stead_seisLM_large.json'
+  # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/ethz_seisLM_large.json'
+  # '/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/phasepick/stead_seisLM_large.json'
 )
 
 training_fractions=(0.05 0.1 0.2 0.5 1.0)

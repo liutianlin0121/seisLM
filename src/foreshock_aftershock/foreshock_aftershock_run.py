@@ -93,7 +93,9 @@ def train_foreshock_aftershock(
       # A unique identifier for the run
       id=run_name,
       save_code=True,
+      offline=config.get("wandb_offline", True),
       save_dir=project_path.MODEL_SAVE_DIR,
+      config=config,
   )
 
   slurm_job_id = os.getenv('SLURM_JOB_ID')
