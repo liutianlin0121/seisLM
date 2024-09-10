@@ -10,7 +10,7 @@
 #SBATCH --partition=a100,rtx4090       # Partition to allocate your job
 #SBATCH --qos=gpu6hours             # Selected queue to allocate your job
 #SBATCH --time=0-6:00:00         # Maximum allocated time
-#SBATCH --array=0-9             # Array job with indices
+#SBATCH --array=0-0             # Array job with indices
 
 
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -19,12 +19,12 @@ conda activate /scicore/home/dokman0000/liu0003/miniconda3/envs/seisbench
 # Define arrays for configs, training fractions, and num_classes
 configs=(
   "/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/foreshock_aftershock/seisLM_base_shock_classifier.json"
-  "/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/foreshock_aftershock/seisLM_large_shock_classifier.json"
+  # "/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/foreshock_aftershock/seisLM_large_shock_classifier.json"
   # "/scicore/home/dokman0000/liu0003/projects/seisLM/seisLM/configs/foreshock_aftershock/conv1d_shock_classifier.json"
 )
 
-training_fractions=(0.05 0.1 0.2 0.5 1.0)
-# training_fractions=(1.0)
+# training_fractions=(0.05 0.1 0.2 0.5 1.0)
+training_fractions=(1.0)
 num_classes=(9)
 
 # Calculate the total number of combinations
