@@ -11,15 +11,12 @@ dataset_names = [
   "PNW",
   "OBS",
   "OBST2024",
-  "TXED"
+  "TXED",
 ]
 
 
 for dataset_name in dataset_names:
   print(dataset_name)
   dataset = dataloaders.get_dataset_by_name(dataset_name)(
-      sampling_rate=100,
-      component_order='ZNE',
-      dimension_order='NCW',
-      cache=None
+    sampling_rate=100, component_order="ZNE", dimension_order="NCW", cache=None
   )
