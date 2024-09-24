@@ -1,13 +1,15 @@
-'''Utility functions for the foreshock aftershock dataset'''
-from datetime import datetime
-from typing import Optional, Tuple, Dict, Union
+"""Utility functions for the foreshock aftershock dataset"""
+
 from collections import defaultdict
+from datetime import datetime
+from typing import Dict, Optional, Tuple, Union
 
 import einops
 import numpy as np
 import pandas as pd
 from lightning import seed_everything
 from sklearn.utils import shuffle
+
 from seisLM.utils.project_path import DATA_DIR
 
 
@@ -23,17 +25,18 @@ def compute_norcia_ttf(row: pd.core.series.Series) -> float:
     difference : float of the amount of time in seconds between the event
     in the input row and the main one
   """
-  time=row['source_origin_time']
-  norcia_datetime= datetime.strptime(
-    '2016-10-30T07:40:17.000000Z', '%Y-%m-%dT%H:%M:%S.%fZ'
+  time = row["source_origin_time"]
+  norcia_datetime = datetime.strptime(
+    "2016-10-30T07:40:17.000000Z", "%Y-%m-%dT%H:%M:%S.%fZ"
   )
-  difference = (time-norcia_datetime).total_seconds()
+  difference = (time - norcia_datetime).total_seconds()
   return difference
+
 
 def shuffle_and_reset(
   df: pd.DataFrame, drop: bool = False, seed: int = None
-  ) -> pd.DataFrame:
-  """ Shuffle the DataFrame and reset the index."""
+) -> pd.DataFrame:
+  """Shuffle the DataFrame and reset the index."""
   df = shuffle(df, random_state=seed)
   df.reset_index(inplace=True, drop=drop)
   return df
@@ -44,10 +47,9 @@ def equallize_dataset_length(
   df_visso: Optional[pd.DataFrame],
   df_post: pd.DataFrame,
   num_classes: int,
-  seed: int = 42
-  ) -> Tuple[pd.DataFrame, Optional[pd.DataFrame], pd.DataFrame]:
-
-  """ Truncate the DataFrames to make sure each class has the same length."""
+  seed: int = 42,
+) -> Tuple[pd.DataFrame, Optional[pd.DataFrame], pd.DataFrame]:
+  """Truncate the DataFrames to make sure each class has the same length."""
   seed_everything(seed)
 
   # Randomly shuffled rows and reset their indices
@@ -67,18 +69,17 @@ def equallize_dataset_length(
     num_non_visso_classes = num_classes // 2
 
     # Determine the length class
-    trunc_length_visso_class = min(
-      len(df_pre), len(df_post), len(df_visso) * num_non_visso_classes
-    ) // num_non_visso_classes
-    trunc_length_pre_and_post = (
-      trunc_length_visso_class * num_non_visso_classes
+    trunc_length_visso_class = (
+      min(len(df_pre), len(df_post), len(df_visso) * num_non_visso_classes)
+      // num_non_visso_classes
     )
+    trunc_length_pre_and_post = trunc_length_visso_class * num_non_visso_classes
 
     # Truncate df_visso to the appropriate length
     df_visso = df_visso[:trunc_length_visso_class]
 
-  df_pre=df_pre[:trunc_length_pre_and_post]
-  df_post=df_post[:trunc_length_pre_and_post]
+  df_pre = df_pre[:trunc_length_pre_and_post]
+  df_post = df_post[:trunc_length_pre_and_post]
 
   return df_pre, df_visso, df_post
 
@@ -88,8 +89,7 @@ def equip_shock_dfs_with_class_labels(
   df_visso: Optional[pd.DataFrame],
   df_post: pd.DataFrame,
   num_classes: int,
-  ) -> Tuple[pd.DataFrame, Optional[pd.DataFrame], pd.DataFrame]:
-
+) -> Tuple[pd.DataFrame, Optional[pd.DataFrame], pd.DataFrame]:
   """
   Takes a DataFrame and returns a list of sub-DataFrames with new labels.
 
@@ -106,7 +106,7 @@ def equip_shock_dfs_with_class_labels(
   if num_classes % 2 == 1:
     # When the number of classes is odd, the visso class must be included.
     assert isinstance(df_visso, pd.DataFrame)
-    df_visso.sort_values(by='trace_start_time', inplace=True)
+    df_visso.sort_values(by="trace_start_time", inplace=True)
     df_visso.reset_index(inplace=True)
 
     # Create a label DataFrame with the same number of rows
@@ -119,14 +119,15 @@ def equip_shock_dfs_with_class_labels(
   post_idx_shift = num_classes % 2
 
   def process_df(df: pd.DataFrame, offset: int = 0) -> pd.DataFrame:
-    df.sort_values(by='trace_start_time', inplace=True)
+    df.sort_values(by="trace_start_time", inplace=True)
     rows_per_class = len(df) // num_pre_or_post_classes
     frames = []
     for c in range(num_pre_or_post_classes):
-      frame = df.iloc[c * rows_per_class: (c + 1) * rows_per_class].reset_index(
-        drop=True)
+      frame = df.iloc[
+        c * rows_per_class : (c + 1) * rows_per_class
+      ].reset_index(drop=True)
       label_position = c + offset
-      frame['label'] = [label_position] * len(frame)
+      frame["label"] = [label_position] * len(frame)
       frames.append(frame)
     return pd.concat(frames, ignore_index=True)
 
@@ -140,41 +141,43 @@ def extract_input_target_from_dataframe(
   df: pd.DataFrame,
   component_order: str,
   dimension_order: str,
-  ) -> Dict[str, Union[np.ndarray, str]]:
+) -> Dict[str, Union[np.ndarray, str]]:
   """Extract the input values and the target values from a DataFrame."""
 
   # Create a mapping of channels based on the component order
-  channel_mapping = {
-      'E': 'E_channel',
-      'N': 'N_channel',
-      'Z': 'Z_channel'
-  }
+  channel_mapping = {"E": "E_channel", "N": "N_channel", "Z": "Z_channel"}
 
-  assert dimension_order in ['NCW', 'NWC']
+  assert dimension_order in ["NCW", "NWC"]
 
   # Ensure the component_order is valid
-  assert set(component_order) == {'E', 'N', 'Z'},\
-    "component_order must be a permutation of 'ENZ'"
+  assert set(component_order) == {
+    "E",
+    "N",
+    "Z",
+  }, "component_order must be a permutation of 'ENZ'"
 
   # Generate the input_values based on the component order
   input_values = np.array(
-    df.apply(lambda row: np.stack(
-      [row[channel_mapping[comp]] for comp in component_order]
-      ), axis=1
+    df.apply(
+      lambda row: np.stack(
+        [row[channel_mapping[comp]] for comp in component_order]
+      ),
+      axis=1,
     ).to_list(),
-    dtype=np.float32
+    dtype=np.float32,
   )
 
-  if dimension_order == 'NWC':
-    input_values = einops.rearrange(input_values, 'n c w -> n w c')
-  targets = np.array(df['label'].to_list())
+  if dimension_order == "NWC":
+    input_values = einops.rearrange(input_values, "n c w -> n w c")
+  targets = np.array(df["label"].to_list())
 
-  occurence_time = df['source_origin_time'].apply(
-    lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S')).to_list()
+  occurence_time = (
+    df["source_origin_time"]
+    .apply(lambda x: datetime.strptime(x, "%Y-%m-%dT%H:%M:%S"))
+    .to_list()
+  )
 
-
-  return {'X': input_values, 'y': targets, 'occurence_time': occurence_time}
-
+  return {"X": input_values, "y": targets, "occurence_time": occurence_time}
 
 
 def train_val_test_split(
@@ -186,13 +189,14 @@ def train_val_test_split(
   train_frac: float = 0.70,
   val_frac: float = 0.10,
   test_frac: float = 0.20,
-  event_split_method: str = 'random',
+  event_split_method: str = "random",
   seed: int = 42,
-  verbose_events: bool = False
-  ) -> Tuple[Dict[str, Union[np.ndarray, str]],
-             Dict[str, Union[np.ndarray, str]],
-             Dict[str, Union[np.ndarray, str]]]:
-
+  verbose_events: bool = False,
+) -> Tuple[
+  Dict[str, Union[np.ndarray, str]],
+  Dict[str, Union[np.ndarray, str]],
+  Dict[str, Union[np.ndarray, str]],
+]:
   """
   Split the dataset in train, val, and test folds.
 
@@ -208,12 +212,12 @@ def train_val_test_split(
 
   seed_everything(seed)
 
-  if event_split_method == 'random':
+  if event_split_method == "random":
     # randomly assign events to train, val, and test
 
     # source_id are the identifications events;
     # they distinguish one earthquake from another;
-    source_id_array = df['source_id'].unique()
+    source_id_array = df["source_id"].unique()
     source_id_array.sort()
 
     source_id_array = np.array(source_id_array)
@@ -227,19 +231,18 @@ def train_val_test_split(
     source_id_val = source_id_array[train_end:val_end]
     source_id_test = source_id_array[val_end:]
 
-  elif event_split_method == 'temporal':
+  elif event_split_method == "temporal":
     # temporally assign events to train, val, and test.
 
-    frames_class = [df[df['label'] == i] for i in range(num_classes)]
-
+    frames_class = [df[df["label"] == i] for i in range(num_classes)]
 
     source_id_train = []
     source_id_val = []
     source_id_test = []
 
     for df_frame in frames_class:
-      df_frame = df_frame.sort_values(by=['trace_start_time'])
-      source_id_array = df_frame['source_id'].unique()
+      df_frame = df_frame.sort_values(by=["trace_start_time"])
+      source_id_array = df_frame["source_id"].unique()
       n_traces_train = int(len(source_id_array) * train_frac)
       n_traces_val = int(len(source_id_array) * val_frac)
       n_traces_test = int(len(source_id_array) * test_frac)
@@ -249,8 +252,7 @@ def train_val_test_split(
       test_split = val_split + n_traces_test
 
       source_id_train_frame = np.concatenate(
-        (source_id_array[:train_split], source_id_array[-train_split:]),
-        axis=0
+        (source_id_array[:train_split], source_id_array[-train_split:]), axis=0
       )
       source_id_val_frame = source_id_array[train_split:val_split]
       source_id_test_frame = source_id_array[val_split:test_split]
@@ -263,13 +265,13 @@ def train_val_test_split(
     raise ValueError("event_split_method must be 'random' or 'temporal'")
 
   if verbose_events:
-    print("Events in train dataset: ",len(source_id_train))
-    print("Events in validation dataset: ",len(source_id_val))
-    print("Events in test dataset: ",len(source_id_test))
+    print("Events in train dataset: ", len(source_id_train))
+    print("Events in validation dataset: ", len(source_id_val))
+    print("Events in test dataset: ", len(source_id_test))
 
-  train_df = shuffle_and_reset(df.loc[df['source_id'].isin(source_id_train)])
-  val_df = shuffle_and_reset(df.loc[df['source_id'].isin(source_id_val)])
-  test_df = shuffle_and_reset(df.loc[df['source_id'].isin(source_id_test)])
+  train_df = shuffle_and_reset(df.loc[df["source_id"].isin(source_id_train)])
+  val_df = shuffle_and_reset(df.loc[df["source_id"].isin(source_id_val)])
+  test_df = shuffle_and_reset(df.loc[df["source_id"].isin(source_id_test)])
 
   train_data = extract_input_target_from_dataframe(
     df=train_df,
@@ -290,7 +292,6 @@ def train_val_test_split(
   return train_data, val_data, test_data
 
 
-
 def create_foreshock_aftershock_datasets(
   *,
   num_classes: int,
@@ -301,20 +302,18 @@ def create_foreshock_aftershock_datasets(
   train_frac: float = 0.70,
   val_frac: float = 0.10,
   test_frac: float = 0.20,
-  seed: int = 42
-  ) -> Dict[str, Dict[str, Union[np.ndarray, str]]]:
-
-
+  seed: int = 42,
+) -> Dict[str, Dict[str, Union[np.ndarray, str]]]:
   df_pre = pd.read_pickle(
-    f'{DATA_DIR}/foreshock_aftershock_NRCA/dataframe_pre_NRCA.csv'
+    f"{DATA_DIR}/foreshock_aftershock_NRCA/dataframe_pre_NRCA.csv"
   )
   df_post = pd.read_pickle(
-    f'{DATA_DIR}/foreshock_aftershock_NRCA/dataframe_post_NRCA.csv'
+    f"{DATA_DIR}/foreshock_aftershock_NRCA/dataframe_post_NRCA.csv"
   )
 
   if num_classes % 2 == 1:
     df_visso = pd.read_pickle(
-      f'{DATA_DIR}/foreshock_aftershock_NRCA/dataframe_visso_NRCA.csv'
+      f"{DATA_DIR}/foreshock_aftershock_NRCA/dataframe_visso_NRCA.csv"
     )
   else:
     df_visso = None
@@ -325,14 +324,14 @@ def create_foreshock_aftershock_datasets(
 
   if num_classes == 2:
     df = pd.concat([df_pre, df_post], ignore_index=True)
-    df['label'] = df['label'].apply(lambda x: x.index(max(x)))
+    df["label"] = df["label"].apply(lambda x: x.index(max(x)))
   else:
     df_tuple_pre_visso_post = equip_shock_dfs_with_class_labels(
       df_pre, df_visso, df_post, num_classes
     )
     df = pd.concat(
       [df for df in df_tuple_pre_visso_post if df is not None],
-      ignore_index=True
+      ignore_index=True,
     )
 
   train_data, val_data, test_data = train_val_test_split(
@@ -352,29 +351,23 @@ def create_foreshock_aftershock_datasets(
     val_data = remove_dates_shared_by_classes(val_data)
     test_data = remove_dates_shared_by_classes(test_data)
 
-  datasets = {
-    'train': train_data,
-    'val': val_data,
-    'test': test_data
-  }
+  datasets = {"train": train_data, "val": val_data, "test": test_data}
   return datasets
 
 
-
-
 def remove_dates_shared_by_classes(
-  data: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
-  """ Remove dates that exist in multiple classes from the dataset."""
+  data: Dict[str, np.ndarray],
+) -> Dict[str, np.ndarray]:
+  """Remove dates that exist in multiple classes from the dataset."""
 
   # For each date, record the classes that appear on that date.
   date_to_classes = defaultdict(set)
-  for timestamp, label in zip(data['occurence_time'], data['y']):
+  for timestamp, label in zip(data["occurence_time"], data["y"]):
     date_to_classes[timestamp.date()].add(label)
 
     # A single date cannot be in more than two classes;
     # if it is, the dataset is prepared incorrectly.
     assert len(date_to_classes[timestamp.date()]) <= 2
-
 
   # Identify dates that appear in more than one class
   dates_in_multiple_classes = {
@@ -386,7 +379,7 @@ def remove_dates_shared_by_classes(
   filtered_y = []
   filtered_occurence_time = []
 
-  for x, y, timestamp in zip(data['X'], data['y'], data['occurence_time']):
+  for x, y, timestamp in zip(data["X"], data["y"], data["occurence_time"]):
     if timestamp.date() not in dates_in_multiple_classes:
       filtered_X.append(x)
       filtered_y.append(y)
@@ -395,7 +388,7 @@ def remove_dates_shared_by_classes(
   filtered_X = np.array(filtered_X)
   filtered_y = np.array(filtered_y)
 
-  data['X'] = filtered_X
-  data['y'] = filtered_y
-  data['occurence_time'] = filtered_occurence_time
+  data["X"] = filtered_X
+  data["y"] = filtered_y
+  data["occurence_time"] = filtered_occurence_time
   return data

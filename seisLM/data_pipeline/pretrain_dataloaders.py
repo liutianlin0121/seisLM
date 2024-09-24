@@ -1,4 +1,5 @@
 """Pretrain dataloader"""
+
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -10,10 +11,13 @@ from seisbench.generate.augmentation import Normalize
 from seisbench.util import worker_seeding
 from torch.utils.data import DataLoader
 
-from seisLM.data_pipeline.foreshock_aftershock_dataloaders import \
-    prepare_foreshock_aftershock_dataloaders
+from seisLM.data_pipeline.foreshock_aftershock_dataloaders import (
+  prepare_foreshock_aftershock_dataloaders,
+)
 from seisLM.data_pipeline.seisbench_dataloaders import (
-    apply_training_fraction, get_dataset_by_name)
+  apply_training_fraction,
+  get_dataset_by_name,
+)
 
 
 def prepare_pretrain_dataloaders(
@@ -29,7 +33,7 @@ def prepare_pretrain_dataloaders(
   collator: Optional[Any] = None,
   cache: Optional[str] = None,
   prefetch_factor: int = 2,
-  ) -> Tuple[DataLoader, Dict[str, DataLoader]]:
+) -> Tuple[DataLoader, Dict[str, DataLoader]]:
   """
   Returns the training and validation data loaders
   """
@@ -38,20 +42,18 @@ def prepare_pretrain_dataloaders(
   assert isinstance(norm, Normalize)
 
   shock_loaders = prepare_foreshock_aftershock_dataloaders(
-    num_classes=4, # doesn't matter for self-supervised learning
+    num_classes=4,  # doesn't matter for self-supervised learning
     batch_size=batch_size,
     component_order=component_order,
-    event_split_method='temporal',
+    event_split_method="temporal",
     demean_axis=norm.demean_axis,
     amp_norm_axis=norm.amp_norm_axis,
     amp_norm_type=norm.amp_norm_type,
     collator=collator,
   )
 
-
   if isinstance(data_names, str):
     data_names = [data_names]
-
 
   multi_waveform_datasets = []
   dev_generators = {}
@@ -89,15 +91,15 @@ def prepare_pretrain_dataloaders(
   train_generator.add_augmentations(model.get_train_augmentations())
 
   train_loader = DataLoader(
-      train_generator,
-      batch_size=batch_size,
-      shuffle=True,
-      num_workers=num_workers,
-      worker_init_fn=worker_seeding,
-      drop_last=True,  # Avoid crashes from batch norm layers for batch size 1
-      pin_memory=True,
-      collate_fn=collator,
-      prefetch_factor=prefetch_factor,
+    train_generator,
+    batch_size=batch_size,
+    shuffle=True,
+    num_workers=num_workers,
+    worker_init_fn=worker_seeding,
+    drop_last=True,  # Avoid crashes from batch norm layers for batch size 1
+    pin_memory=True,
+    collate_fn=collator,
+    prefetch_factor=prefetch_factor,
   )
 
   dev_loaders = {}
@@ -110,9 +112,7 @@ def prepare_pretrain_dataloaders(
       pin_memory=True,
       collate_fn=collator,
       prefetch_factor=prefetch_factor,
-  )
+    )
 
-
-
-  dev_loaders['shock'] = shock_loaders['val']
+  dev_loaders["shock"] = shock_loaders["val"]
   return train_loader, dev_loaders

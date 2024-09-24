@@ -1,25 +1,26 @@
-""" Dataloaders for SeisBench datasets. """
-from typing import List, Optional, Any, Tuple, Union
+"""Dataloaders for SeisBench datasets."""
+
 import logging
-import numpy as np
-import seisbench.generate as sbg
-import seisbench.data as sbd
-from torch.utils.data import DataLoader
-from seisbench.util import worker_seeding
-from seisbench.data import MultiWaveformDataset
-from seisbench.data.base import BenchmarkDataset
+from typing import Any, List, Optional, Tuple, Union
 
 import lightning as L
+import numpy as np
+import seisbench.data as sbd
+import seisbench.generate as sbg
+from seisbench.data import MultiWaveformDataset
+from seisbench.data.base import BenchmarkDataset
+from seisbench.util import worker_seeding
+from torch.utils.data import DataLoader
 
 data_aliases = {
-    "ethz": "ETHZ",
-    "geofon": "GEOFON",
-    "stead": "STEAD",
-    "neic": "NEIC",
-    "instance": "InstanceCountsCombined",
-    "iquique": "Iquique",
-    "lendb": "LenDB",
-    "scedc": "SCEDC",
+  "ethz": "ETHZ",
+  "geofon": "GEOFON",
+  "stead": "STEAD",
+  "neic": "NEIC",
+  "instance": "InstanceCountsCombined",
+  "iquique": "Iquique",
+  "lendb": "LenDB",
+  "scedc": "SCEDC",
 }
 
 
@@ -42,7 +43,7 @@ def get_dataset_by_name(name: str) -> BenchmarkDataset:
 def apply_training_fraction(
   training_fraction: float,
   train_data: BenchmarkDataset,
-  ) -> None:
+) -> None:
   """
   Reduces the size of train_data to train_fraction by inplace filtering.
   Filter blockwise for efficient memory savings.
@@ -82,8 +83,9 @@ def prepare_seisbench_dataloaders(
   cache: Optional[str] = None,
   prefetch_factor: int = 2,
   return_datasets: bool = False,
-  ) -> Union[
-    Tuple[DataLoader, DataLoader], Tuple[BenchmarkDataset, BenchmarkDataset]]:
+) -> Union[
+  Tuple[DataLoader, DataLoader], Tuple[BenchmarkDataset, BenchmarkDataset]
+]:
   """
   Returns the training and validation data loaders
   """
@@ -96,7 +98,7 @@ def prepare_seisbench_dataloaders(
       sampling_rate=sampling_rate,
       component_order=component_order,
       dimension_order=dimension_order,
-      cache=cache
+      cache=cache,
     )
 
     if "split" not in dataset.metadata.columns:
@@ -128,26 +130,25 @@ def prepare_seisbench_dataloaders(
   train_generator.add_augmentations(model.get_train_augmentations())
   dev_generator.add_augmentations(model.get_val_augmentations())
 
-
   train_loader = DataLoader(
-      train_generator,
-      batch_size=batch_size,
-      shuffle=True,
-      num_workers=num_workers,
-      worker_init_fn=worker_seeding,
-      drop_last=True,  # Avoid crashes from batch norm layers for batch size 1
-      pin_memory=True,
-      collate_fn=collator,
-      prefetch_factor=prefetch_factor,
+    train_generator,
+    batch_size=batch_size,
+    shuffle=True,
+    num_workers=num_workers,
+    worker_init_fn=worker_seeding,
+    drop_last=True,  # Avoid crashes from batch norm layers for batch size 1
+    pin_memory=True,
+    collate_fn=collator,
+    prefetch_factor=prefetch_factor,
   )
   dev_loader = DataLoader(
-      dev_generator,
-      batch_size=batch_size,
-      num_workers=num_workers,
-      worker_init_fn=worker_seeding,
-      pin_memory=True,
-      collate_fn=collator,
-      prefetch_factor=prefetch_factor,
+    dev_generator,
+    batch_size=batch_size,
+    num_workers=num_workers,
+    worker_init_fn=worker_seeding,
+    pin_memory=True,
+    collate_fn=collator,
+    prefetch_factor=prefetch_factor,
   )
 
   if return_datasets:

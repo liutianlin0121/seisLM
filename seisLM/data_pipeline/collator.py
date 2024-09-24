@@ -1,10 +1,16 @@
 """Data collator for Wav2Vec2ForPreTraining model."""
-from typing import Optional, Dict, Union, List, Tuple
+
 from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple, Union
+
 import ml_collections
-import torch
 import numpy as np
-from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices, _sample_negative_indices
+import torch
+from transformers.models.wav2vec2.modeling_wav2vec2 import (
+  _compute_mask_indices,
+  _sample_negative_indices,
+)
+
 from seisLM.model.foundation import mask_utils
 
 
@@ -35,12 +41,12 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
   mask_time_prob: Optional[float] = 0.65
   mask_time_length: Optional[int] = 10
 
-  def __call__(self, sample:
-        List[Union[Dict[str, np.ndarray], Tuple[np.ndarray, np.ndarray]]]
-      ) -> Dict[str, torch.Tensor]:
-
+  def __call__(
+    self,
+    sample: List[Union[Dict[str, np.ndarray], Tuple[np.ndarray, np.ndarray]]],
+  ) -> Dict[str, torch.Tensor]:
     if isinstance(sample[0], dict):
-      features = np.stack([s['X'] for s in sample])
+      features = np.stack([s["X"] for s in sample])
       features = torch.from_numpy(features)
     elif isinstance(sample[0], tuple):
       # Here, we assume that the first element of the list is the feature.
@@ -58,8 +64,7 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
 
     # computes the output length of the convoluional layers
     mask_indices_seq_length = mask_utils.get_feat_extract_output_lengths(
-      self.config,
-      seq_length
+      self.config, seq_length
     )
 
     mask_indices_seq_length = int(mask_indices_seq_length)
@@ -68,30 +73,23 @@ class DataCollatorForWav2Vec2PretrainingConcatChannelsNoPadding:
 
     # sample randomly masked indices
     mask_time_indices = _compute_mask_indices(
-        shape=features_shape,
-        mask_prob=self.mask_time_prob,
-        mask_length=self.mask_time_length,
+      shape=features_shape,
+      mask_prob=self.mask_time_prob,
+      mask_length=self.mask_time_length,
     )
 
     # sample negative indices
     sampled_negative_indices = _sample_negative_indices(
-        features_shape,
-        self.config.num_negatives,
-        mask_time_indices=mask_time_indices,
-    )
-    batch["attention_mask"] = torch.ones(
       features_shape,
-      device=device
+      self.config.num_negatives,
+      mask_time_indices=mask_time_indices,
     )
+    batch["attention_mask"] = torch.ones(features_shape, device=device)
     batch["mask_time_indices"] = torch.tensor(
-      mask_time_indices,
-      dtype=torch.long,
-      device=device
+      mask_time_indices, dtype=torch.long, device=device
     )
     batch["sampled_negative_indices"] = torch.tensor(
-      sampled_negative_indices,
-      dtype=torch.long,
-      device=device
+      sampled_negative_indices, dtype=torch.long, device=device
     )
 
     return batch
