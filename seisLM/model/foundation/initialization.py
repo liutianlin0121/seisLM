@@ -1,15 +1,20 @@
-""" Initialization functions for the Wav2Vec2 model. """
+"""Initialization functions for the Wav2Vec2 model."""
+
 import math
-from torch import nn
+
 import ml_collections
-from seisLM.model.foundation import quantizer
-from seisLM.model.foundation import multidim_wav2vec2
-from seisLM.model.foundation import position_embedding
+from torch import nn
+
+from seisLM.model.foundation import (
+  multidim_wav2vec2,
+  position_embedding,
+  quantizer,
+)
+
+
 def init_wav2vec2_weights(
-  *,
-  config: ml_collections.ConfigDict,
-  module: nn.Module
-  ) -> None:
+  *, config: ml_collections.ConfigDict, module: nn.Module
+) -> None:
   """Initialize the weights"""
   # Wav2Vec2ForPreTraining last 2 linear layers need standard Linear init.
   if isinstance(module, multidim_wav2vec2.MultiDimWav2Vec2ForPreTraining):
@@ -23,13 +28,12 @@ def init_wav2vec2_weights(
     nn.init.uniform_(module.codevectors)
   elif isinstance(module, position_embedding.Wav2Vec2PositionalConvEmbedding):
     nn.init.normal_(
-        module.conv.weight,
-        mean=0,
-        std=2 * math.sqrt(1 / (
-          module.conv.kernel_size[0] * module.conv.in_channels
-        )),
+      module.conv.weight,
+      mean=0,
+      std=2
+      * math.sqrt(1 / (module.conv.kernel_size[0] * module.conv.in_channels)),
     )
-    module.conv.bias.data.zero_()
+    module.conv.bias.data.zero_()  # type: ignore
 
   elif isinstance(module, multidim_wav2vec2.Wav2Vec2FeatureProjection):
     k = math.sqrt(1 / module.projection.in_features)
@@ -47,7 +51,7 @@ def init_wav2vec2_weights(
     nn.init.kaiming_normal_(module.weight)
 
     if module.bias is not None:
-      k = math.sqrt(module.groups / (
-        module.in_channels * module.kernel_size[0])
+      k = math.sqrt(
+        module.groups / (module.in_channels * module.kernel_size[0])
       )
       nn.init.uniform_(module.bias, a=-k, b=k)

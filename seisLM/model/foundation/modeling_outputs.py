@@ -8,8 +8,10 @@ D: feature dimension
 """
 
 from dataclasses import dataclass
-from typing import Tuple, Optional
+from typing import Optional, Tuple
+
 from torch import Tensor
+
 
 @dataclass
 class BaseModelOutput:
