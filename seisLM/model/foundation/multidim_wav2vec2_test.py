@@ -13,12 +13,14 @@ from lightning.pytorch import seed_everything
 from transformers import Wav2Vec2Config
 from transformers import Wav2Vec2ForPreTraining as RefWav2Vec2ForPreTraining
 from transformers.models.wav2vec2.modeling_wav2vec2 import (
-  _compute_mask_indices, _sample_negative_indices)
-
-from seisLM.model.foundation.multidim_wav2vec2 import \
-  MultiDimWav2Vec2ForPreTraining
+  _compute_mask_indices,
+  _sample_negative_indices,
+)
 
 from seisLM.model.foundation.mask_utils import get_feat_extract_output_lengths
+from seisLM.model.foundation.multidim_wav2vec2 import (
+  MultiDimWav2Vec2ForPreTraining,
+)
 
 
 def compare_model_params(model: Any, ref_model: Any) -> bool:
@@ -48,7 +50,7 @@ class TestMultiDimWav2Vec2(unittest.TestCase):
 
     cls.model_names = [
       "patrickvonplaten/wav2vec2-base-v2",
-      "facebook/wav2vec2-base"
+      "facebook/wav2vec2-base",
     ]
     cls.num_negatives = 100
 
@@ -69,9 +71,9 @@ class TestMultiDimWav2Vec2(unittest.TestCase):
       for model_name in self.model_names:
         config = Wav2Vec2Config.from_pretrained(model_name)
 
-        for model_type in ['ref', 'new']:
+        for model_type in ["ref", "new"]:
           seed_everything(self.seed)
-          if model_type == 'ref':
+          if model_type == "ref":
             model = RefWav2Vec2ForPreTraining(config)
           else:
             config.use_rms_norm = False
@@ -89,12 +91,17 @@ class TestMultiDimWav2Vec2(unittest.TestCase):
 
           batch_size, raw_sequence_length = self.input_values.shape
 
-          if model_type == 'ref':
+          if model_type == "ref":
             sequence_length = model._get_feat_extract_output_lengths(
-              raw_sequence_length).item()  # pylint: disable=protected-access
+              raw_sequence_length
+            )
           else:
             sequence_length = get_feat_extract_output_lengths(
-              config, raw_sequence_length).item()
+              config, raw_sequence_length
+            )
+
+          if isinstance(sequence_length, torch.Tensor):
+            sequence_length = sequence_length.item()
 
           seed_everything(self.seed)
           mask_time_indices = _compute_mask_indices(
@@ -110,36 +117,36 @@ class TestMultiDimWav2Vec2(unittest.TestCase):
           mask_time_indices = torch.tensor(
             data=mask_time_indices,
             device=self.input_values.device,
-            dtype=torch.long
+            dtype=torch.long,
           )
           sampled_negative_indices = torch.tensor(
             data=sampled_negative_indices,
             device=self.input_values.device,
-            dtype=torch.long
+            dtype=torch.long,
           )
 
           with torch.no_grad():
             outputs = model(
               self.input_values,
               mask_time_indices=mask_time_indices,
-              sampled_negative_indices=sampled_negative_indices
+              sampled_negative_indices=sampled_negative_indices,
             )
 
-          model_output[f'{model_name}_{model_type}'] = outputs
+          model_output[f"{model_name}_{model_type}"] = outputs
 
       for name in self.model_names:
-        new_output = model_output[f'{name}_new']
-        ref_output = model_output[f'{name}_ref']
+        new_output = model_output[f"{name}_new"]
+        ref_output = model_output[f"{name}_ref"]
 
         for field in ref_output:
           value1 = getattr(new_output, field)
           value2 = getattr(ref_output, field)
           self.assertTrue(
             np.allclose(value1.cpu().numpy(), value2.cpu().numpy()),
-            f'Outputs for field {field} do not match:'
-            f'new {field}: {value1}, ref {field}: {value2}'
+            f"Outputs for field {field} do not match:"
+            f"new {field}: {value1}, ref {field}: {value2}",
           )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   unittest.main()
