@@ -16,3 +16,4 @@ figs/
 core.*
 .mypy_cache/
 src/pretrain/.nfs0000000049dc400600003fe2
+/internals
