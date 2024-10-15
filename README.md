@@ -7,6 +7,17 @@ The model is based on the [Wav2Vec2](https://arxiv.org/abs/2006.11477) and is tr
 
 ![Seismic LM](img/seisLM-model.png)
 
+## Colab demo
+
+| Examples                                         |  |
+|--------------------------------------------------|---|
+| Visualize SeisLM base pretrained features                                   | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/liutianlin0121/seisLM/blob/main/examples/demo_seislm_visualized_pretrained_features.ipynb) |
+| Finetune SeisLM base on foreshock-aftershock task                                   | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/liutianlin0121/seisLM/blob/main/examples/demo_seislm_foreshock_aftershock_classification.ipynb) |
+
+
+
+
+
 ## Installation
 
 To install the Seismic LM model, you can use the following command:
