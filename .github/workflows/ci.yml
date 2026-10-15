@@ -1,0 +1,73 @@
+name: Package and inference
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Install the locked environment
+        if: matrix.python-version != '3.13'
+        run: uv sync --locked --all-extras --group notebook
+      - name: Install the locked inference environment
+        if: matrix.python-version == '3.13'
+        run: uv sync --locked --group notebook
+      - name: Test supported interfaces
+        run: uv run --locked --no-sync pytest
+      - name: Execute the inference notebook on CPU
+        if: matrix.python-version == '3.12' || matrix.python-version == '3.13'
+        run: >-
+          uv run --locked --no-sync python scripts/run_notebook.py
+          --device cpu --model base --output-dir .artifacts/notebooks/ci-base-cpu
+      - name: Build wheel and source distribution
+        run: uv build
+      - name: Check the wheel outside the checkout
+        shell: bash
+        run: |
+          uv venv "$RUNNER_TEMP/seislm-wheel" --python '${{ matrix.python-version }}'
+          uv pip install --python "$RUNNER_TEMP/seislm-wheel/bin/python" --torch-backend cpu dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/seislm-wheel/bin/python" - <<'PY'
+          import json
+          from importlib.resources import files
+          from pathlib import Path
+          import ml_collections
+          import torch
+          import seisLM
+          from seisLM.model.foundation.multidim_wav2vec2 import Wav2Vec2Model
+          from seisLM.utils.project_path import DATA_DIR
+
+          config = files("seisLM.configs").joinpath(
+              "pretrain",
+              "pretrain_config_std_norm_single_ax_8_datasets_32bit_scaleup_samp_false.json",
+          )
+          model_config = json.loads(config.read_text())["model_config"]
+          assert model_config["input_dim"] == 3
+          assert Path(DATA_DIR) == Path.cwd() / "data"
+          assert "site-packages" in seisLM.__file__
+
+          model_config.update(
+              hidden_size=8, intermediate_size=16, num_attention_heads=2,
+              num_hidden_layers=1, conv_dim=[4, 4],
+              num_conv_pos_embeddings=8, num_conv_pos_embedding_groups=2,
+          )
+          model = Wav2Vec2Model(ml_collections.ConfigDict(model_config)).eval()
+          with torch.inference_mode():
+              features = model(torch.zeros(1, 3, 301)).last_hidden_state
+          assert features.shape == (1, 74, 8)
+          assert torch.isfinite(features).all()
+          PY

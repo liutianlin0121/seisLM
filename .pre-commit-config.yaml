@@ -6,7 +6,8 @@ repos:
   - repo: local
     hooks:
       - id: run-tests
-        name: Run tests
-        entry: bash -c 'python -m unittest discover -s . -p "*_test.py"'
+        name: Test maintained interfaces
+        entry: uv run --locked --group dev --group notebook pytest tests
         language: system
         pass_filenames: false
+        always_run: true
