@@ -17,3 +17,12 @@ core.*
 .mypy_cache/
 src/pretrain/.nfs0000000049dc400600003fe2
 /internals
+.venv*/
+.artifacts/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+seislm_feature_outputs/
+seislm_finetuning_outputs/
+seislm_inference_outputs/

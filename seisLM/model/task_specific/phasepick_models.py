@@ -332,7 +332,9 @@ class MultiDimWav2Vec2ForFrameClassificationLit(BasePhaseNetLikeLit):
     if load_pretrained:
       pretrained_model = (
         pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
-          model_config.pretrained_ckpt_path
+          # Preserve loading of trusted legacy ConfigDict checkpoints on
+          # PyTorch >= 2.6. Portable inference bundles use the public API.
+          model_config.pretrained_ckpt_path, weights_only=False
         ).model
       )
 

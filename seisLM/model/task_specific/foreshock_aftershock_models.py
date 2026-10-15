@@ -278,7 +278,9 @@ class Wav2vec2ShockClassifierLit(BaseShockClassifierLit):
 
     if load_pretrained:
       pretrained_model = pretrained_models.LitMultiDimWav2Vec2.load_from_checkpoint(
-          model_config.pretrained_ckpt_path
+          # Original checkpoints serialize ConfigDict and NumPy metadata.
+          # This legacy training path accepts trusted author/user checkpoints.
+          model_config.pretrained_ckpt_path, weights_only=False
       ).model
 
       new_config = pretrained_model.config

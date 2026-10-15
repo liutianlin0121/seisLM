@@ -4,7 +4,7 @@ from typing import Optional, Tuple, Union
 import ml_collections
 import torch
 from torch import nn, Tensor
-from torchtune.modules import RMSNorm
+from seisLM.model.foundation.normalization import layer_norm_class
 from seisLM.model.foundation import modeling_outputs
 from seisLM.model.foundation import position_embedding
 
@@ -151,7 +151,7 @@ class Wav2Vec2EncoderBase(nn.Module): # pylint: disable=abstract-method
         dropout=config.attention_dropout,
         rotary_pos_embed=config.rotary_pos_embed,
     )
-    LayerOrRMSNorm = RMSNorm if config.use_rms_norm else nn.LayerNorm
+    LayerOrRMSNorm = layer_norm_class(config.use_rms_norm)
 
     self.dropout = nn.Dropout(config.hidden_dropout)
     self.layer_norm = LayerOrRMSNorm(
@@ -244,7 +244,7 @@ class Wav2Vec2EncoderStableLayerNorm(nn.Module):
       self.pos_conv_embed = position_embedding.Wav2Vec2PositionalConvEmbedding(
         config)
 
-    LayerOrRMSNorm = RMSNorm if config.use_rms_norm else nn.LayerNorm
+    LayerOrRMSNorm = layer_norm_class(config.use_rms_norm)
 
     self.layer_norm = LayerOrRMSNorm(
       config.hidden_size, eps=config.layer_norm_eps
@@ -330,7 +330,7 @@ class Wav2Vec2Encoder(nn.Module):
     self.pos_conv_embed = position_embedding.Wav2Vec2PositionalConvEmbedding(
       config)
 
-    LayerOrRMSNorm = RMSNorm if config.use_rms_norm else nn.LayerNorm
+    LayerOrRMSNorm = layer_norm_class(config.use_rms_norm)
 
     self.layer_norm = LayerOrRMSNorm(
       config.hidden_size, eps=config.layer_norm_eps

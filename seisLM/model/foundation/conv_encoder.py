@@ -10,7 +10,7 @@ D: feature dimension
 import einops
 import ml_collections
 from torch import Tensor, nn
-from torchtune.modules import RMSNorm
+from seisLM.model.foundation.normalization import layer_norm_class
 
 
 class Wav2Vec2NoLayerNormConvLayer(nn.Module):
@@ -55,7 +55,7 @@ class Wav2Vec2LayerNormConvLayer(nn.Module):
       else getattr(config, "input_dim", 1)
     )
 
-    LayerOrRMSNorm = RMSNorm if config.use_rms_norm else nn.LayerNorm
+    LayerOrRMSNorm = layer_norm_class(config.use_rms_norm)
     self.out_conv_dim = config.conv_dim[layer_id]
 
     self.conv = nn.Conv1d(

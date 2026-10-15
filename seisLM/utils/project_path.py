@@ -1,23 +1,34 @@
-"""Utility functions that provide the absolute path to project directories.
+"""Locations for research datasets and results.
 
-Typical usage example:
-
-# Path to the checkpoint directory used to store intermediate training
-# checkpoints for experiment name stored in `experiment_name`.
-checkpointsdir(experiment_name)
+Set ``SEISLM_HOME`` to place these directories somewhere explicit. Source
+checkouts retain their historical repository-local defaults; installed wheels
+use the current working directory. Importing this module creates no files and
+does not require Git or a Git checkout.
 """
 
+import glob
 import os
-import git
-import glob, os
+from pathlib import Path
 from typing import Optional, List
 
+
 def gitdir() -> str:
-  """Find the absolute path to the GitHub repository root.
+  """Return the working root (historical name retained for compatibility).
+
+  Unlike the original helper, this works in an installed package and does not
+  accidentally select an unrelated Git repository containing the working dir.
   """
-  git_repo = git.Repo(os.getcwd(), search_parent_directories=True)
-  git_root = git_repo.git.rev_parse('--show-toplevel')
-  return git_root
+  configured_root = os.environ.get("SEISLM_HOME")
+  if configured_root:
+    return str(Path(configured_root).expanduser().resolve())
+
+  source_root = Path(__file__).resolve().parents[2]
+  if (source_root / "pyproject.toml").is_file() and (
+    source_root / "seisLM"
+  ).is_dir():
+    return str(source_root)
+  return str(Path.cwd())
+
 
 def create_folder_if_not_exists(path):
   """
