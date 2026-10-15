@@ -44,10 +44,10 @@ See [installation and input conventions](docs/installation.md) for a standalone 
 
 ## Pretrained model catalog
 
-| Model | Encoder layers | Hidden size | Parameters in released pretraining model | Hugging Face | Original checkpoint |
-|---|---:|---:|---:|---|---|
-| Base | 6 | 240 | 11,359,568 | [ltlltl2006/seislm-base](https://huggingface.co/ltlltl2006/seislm-base/tree/a9e9f79af940a3ea28a49ef9fa495ae89b48d576) | [Google Drive](https://drive.google.com/file/d/12L2Js1DIXCIxacQJ4K0hRKJ6qHFrQ7K-/view) |
-| Large | 12 | 768 | 90,683,648 | [ltlltl2006/seislm-large](https://huggingface.co/ltlltl2006/seislm-large/tree/3ad2a723faeded0ca45b555c9c0ea8823affcc4f) | [Google Drive](https://drive.google.com/file/d/1LPUCltHsle4OqDPGEtcHPdoRnLppY-KH/view) |
+| Model | Encoder layers | Hidden size | Number of parameters | Hugging Face |
+|---|---:|---:|---:|---|
+| Base | 6 | 240 | 11,359,568 | [ltlltl2006/seislm-base](https://huggingface.co/ltlltl2006/seislm-base/tree/a9e9f79af940a3ea28a49ef9fa495ae89b48d576) |
+| Large | 12 | 768 | 90,683,648 | [ltlltl2006/seislm-large](https://huggingface.co/ltlltl2006/seislm-large/tree/3ad2a723faeded0ca45b555c9c0ea8823affcc4f) |
 
 Both models are available as portable Hub bundles under the MIT license. The loading API accepts the catalog aliases `"base"` and `"large"`, full Hub repository IDs, and local bundles. Parameter counts include the pretraining heads; `encode()` returns contextual encoder features. Pin a revision, as above, when reproducing a result.
 
@@ -55,8 +55,8 @@ Both models are available as portable Hub bundles under the MIT license. The loa
 
 | Notebook | What you will do |
 |---|---|
-| [1. Pretrained inference](examples/demo_pretrained_inference.ipynb) · [Colab](https://colab.research.google.com/drive/18dqsNcNsF9Kc9D53YPIVJMEjW_JX1ox7) | Load a real ObsPy waveform, compare the input and contextual features, and export the results |
-| [2. Visualize pretrained features](examples/demo_seislm_visualized_pretrained_features.ipynb) · [Colab](https://colab.research.google.com/drive/150HS1pyoY4FLnVRksc9E9Bw4UI2q7NtQ) | Compare pretrained and randomly initialized embeddings using t-SNE; hover over a point to inspect its waveform |
+| [1. Pretrained inference](examples/demo_pretrained_inference.ipynb) · [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/18dqsNcNsF9Kc9D53YPIVJMEjW_JX1ox7) | Load a real ObsPy waveform, compare the input and contextual features, and export the results |
+| [2. Visualize pretrained features](examples/demo_seislm_visualized_pretrained_features.ipynb) · [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/150HS1pyoY4FLnVRksc9E9Bw4UI2q7NtQ) | Compare pretrained and randomly initialized embeddings using t-SNE; hover over a point to inspect its waveform |
 
 Open the up-to-date hosted demos using the Colab links above. Choose a **Python 3** runtime; a GPU is recommended. Both notebooks install the public SeisLM wheel and load pinned Hugging Face encoders, without a repository clone, model login, W&B account, or legacy checkpoint. See [notebook execution and Colab checks](docs/notebooks.md) for data downloads, expected outputs, and validation records.
 
