@@ -1,6 +1,6 @@
 # Practitioner notebooks
 
-Start with inference, then explore the pretrained representations. Both notebooks run in Colab or locally, install a released wheel, and load pinned public Hugging Face models. No Hugging Face token, Drive mount, W&B account, original checkpoint, or repository clone is needed in Colab.
+Start with inference, then explore the pretrained representations. Both introductory notebooks run in Colab or locally, install a released wheel, and load pinned public Hugging Face models. No Hugging Face token, Drive mount, W&B account, original checkpoint, or repository clone is needed in Colab. For fine-tuning, see the [foreshock/aftershock experiment](#original-foreshockaftershock-experiment).
 
 | Demo | Open in Colab | Notebook source |
 |---|---|---|
@@ -66,4 +66,17 @@ The notebooks use immutable revisions:
 
 The wheel pin is independent of the selected encoder. See [Hugging Face releases](huggingface.md) for provenance and [validation](validation.md#recorded-results) for the verification status.
 
-The original foreshock/aftershock notebook remains research code. Its modernization and accuracy review are paused; it is not one of the recommended demos for this update.
+## Original foreshock/aftershock experiment
+
+Run the [classification demo in Colab](https://colab.research.google.com/drive/1QYxAyBi3h8P0m_FZ4ajeJ5oel5X1mrii).
+
+The [classification notebook](../examples/demo_seislm_foreshock_aftershock_classification.ipynb) follows the original SeisLM-base experiment: all 5,580 training waveforms, 15 epochs, batch size 32, and the original head, augmentation, optimizer, and scheduler. It requires a GPU. As in the original demo, all 1,593 `test` waveforms supply training monitoring and final evaluation; the 792-waveform `val` split is unused. Final testing and the percentage confusion matrix use `last.ckpt`.
+
+```bash
+uv run --locked --extra notebooks --group notebook python scripts/run_notebook.py \
+  --notebook examples/demo_seislm_foreshock_aftershock_classification.ipynb \
+  --model base --device cuda --timeout 7200 \
+  --output-dir .artifacts/notebooks/foreshock-original-cuda
+```
+
+The longer timeout allows the full training cell to finish. See [experiment validation](validation.md#foreshockaftershock-experiment) for comparison with the original recipe and recorded results. Hosted Colab verification of this restored notebook is pending.

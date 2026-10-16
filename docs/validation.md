@@ -1,6 +1,6 @@
 # Maintainer validation
 
-The maintained demos are [pretrained inference and feature visualization](notebooks.md). Validate installation, numerical behavior, notebook execution, and browser interaction separately. These checks do not reproduce the paper's downstream scores or validate the paused foreshock/aftershock example.
+The introductory demos are [pretrained inference and feature visualization](notebooks.md). Validate installation, numerical behavior, notebook execution, and browser interaction separately. The restored [foreshock/aftershock experiment](#foreshockaftershock-experiment) has a separate training check. These checks do not reproduce the paper's downstream scores.
 
 ## Repeatable checks
 
@@ -68,6 +68,34 @@ The checker uses real mouse hovers in both projections and compares waveform val
 3. Confirm CUDA and the intended model revision. Inference should produce finite `[1, 749, 240]` features and aligned waveform/feature panels. In feature visualization, hover in both projections and confirm waveform and linked-highlight updates; download the HTML and check it after disconnecting the runtime.
 4. Download the executed notebook and saved results, including `run-summary.json`. Record the date, runtime version, Python/PyTorch versions, GPU type, model revision, and any installation warnings. Distinguish a user-reported successful run from a retained execution report.
 5. Repeat with large and a separate output directory. Inference should produce `[1, 749, 768]`; feature visualization should use the same windows.
+
+## Foreshock/aftershock experiment
+
+The [classification notebook](../examples/demo_seislm_foreshock_aftershock_classification.ipynb) restores the experiment in commit `ae1d27ac498ec7ae106e56eeaac386a0a5dd124f`: SeisLM base, seed 42, the full original temporal splits, batch size 32, two data workers, and 15 epochs (2,625 optimizer updates). It uses the original convolutional head, freezes only the input convolutional encoder, retains SpecAugment with time-mask probability 0.65, and trains the transformer and head together. AdamW uses learning rate `4e-4`, weight decay `0.1`, epsilon `1e-7`, and the original per-step cosine schedule without warm-up.
+
+The original split roles are preserved: 5,580 training waveforms, 1,593 `test` waveforms for monitoring and final evaluation, and an unused 792-waveform `val` split. Final testing and the confusion matrix use **last.ckpt**. The [execution command](notebooks.md#original-foreshockaftershock-experiment) allows a longer timeout for training.
+
+On **16 October 2026**, the full GPU training completed on NVIDIA GB10 using the public SeisLM 0.2.1 wheel, Python 3.13.14, PyTorch 2.11.0+cu130, NumPy 2.1.3, Lightning 2.6.6, pandas 2.3.3, scikit-learn 1.9.1, and SeisBench 0.9.1:
+
+| Run | Test accuracy | Cross-entropy |
+|---|---:|---:|
+| Original notebook's saved A100 run | 70.8098% | 1.130710 |
+| Restored recipe, local GB10 run | 69.7426% | 0.950534 |
+
+The new accuracy is **1.07 percentage points lower**. Hardware and dependencies differ; this check establishes recipe and loading parity, but does not exactly reproduce the historical score or the paper's separate benchmark result.
+
+The independent checks confirmed:
+
+- All six normalized waveform/label tensors across train, val, and test have the same SHA-256 hashes as the original helpers. NumPy 1.26.4 and 2.1.3 produce identical data.
+- Hugging Face and legacy loading produce identical configurations, all 140 initial state tensors, parameter order, trainable flags, and random states. One GPU training step matches logits, loss, all 120 gradients, and updated weights exactly. Deterministic CUDA kernels were enabled only for this isolated comparison; the notebook retains the original default training behavior.
+- CSV logging preserves the random states, as does the original offline W&B logger. Every recorded learning rate matches the original cosine formula exactly; all recorded losses and gradients are finite.
+- The final checkpoint records epoch 14 and global step 2,625. All eight frozen parameter tensors remain unchanged, and transformer weights have updated. Reloaded predictions cover all 1,593 test waveforms, with 177 per class; recomputed accuracy and loss match Lightning's final evaluation.
+
+Validation ran in two stages. Training completed before modern PyTorch rejected the final checkpoint reload. The notebook now passes `weights_only=False` explicitly when Lightning tests the checkpoint created by this run, matching its explicit reload cell. Final testing and the remaining plot/export cells then passed after restoring the completed checkpoint, with **zero additional optimizer updates** and identical trained tensors. An uninterrupted fresh execution of the corrected notebook has not been repeated.
+
+The confusion-matrix title retains the original convention: mean diagonal of rounded row percentages. It reads **69.89%** for this run; the sample accuracy above is **69.74%**.
+
+Local evidence is retained under ignored `.artifacts/foreshock-faithful/`: original recipe/data references, initialization and logger comparisons, full training logs/checkpoint, the resumed executed notebook, predictions, environment manifest, and `completed-run-verification.json`. Hosted Colab verification is pending: upload the edited notebook, select a fresh Python 3 GPU runtime, run all 15 epochs, and retain `run-summary.json` and the executed notebook. The existing inference/feature Drive copies do not update this separate notebook.
 
 ## Recorded results
 

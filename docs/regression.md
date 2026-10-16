@@ -127,8 +127,9 @@ the corresponding task checkpoints, exact dataset versions and evaluation
 targets, and split/preprocessing configuration. Retraining adds optimization
 variability and is a separate experiment.
 
-This refactor's release gate is therefore unchanged pretrained model behavior
-plus installation/loading and execution of the two recommended demos. The
-foreshock/aftershock tutorial is under review and excluded from this update. Its numerical comparisons do not establish
-reproduction of the paper's downstream scores, fine-tuning quality, or performance
-on continuous regional data.
+The pretrained release checks cover unchanged model behavior plus
+installation/loading and execution of the two recommended demos. The restored
+foreshock/aftershock notebook follows its original training recipe; its
+[experiment validation](validation.md#foreshockaftershock-experiment) is recorded
+separately. These checks do not establish reproduction of the paper's downstream
+scores or performance on continuous regional data.

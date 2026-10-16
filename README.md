@@ -4,7 +4,7 @@ SeisLM learns representations of three-component seismic waveforms. This reposit
 
 ![SeisLM architecture](img/seisLM-model.png)
 
-Start with the two practitioner notebooks below to extract pretrained features and explore their structure. An encoder checkpoint does not contain a trained phase-picking head: these features are not P/S probabilities or earthquake detections. The original phase-picking experiments remain research code.
+Start with the practitioner notebooks below to extract pretrained features, explore their structure, and fine-tune SeisLM for classification. An encoder checkpoint does not contain a trained phase-picking head: these features are not P/S probabilities or earthquake detections. The original phase-picking experiments remain research code.
 
 ## Quickstart
 
@@ -46,19 +46,20 @@ See [installation and input conventions](docs/installation.md) for a standalone 
 
 | Model | Encoder layers | Hidden size | Number of parameters | Hugging Face |
 |---|---:|---:|---:|---|
-| Base | 6 | 240 | 11,359,568 | [ltlltl2006/seislm-base](https://huggingface.co/ltlltl2006/seislm-base/tree/a9e9f79af940a3ea28a49ef9fa495ae89b48d576) |
-| Large | 12 | 768 | 90,683,648 | [ltlltl2006/seislm-large](https://huggingface.co/ltlltl2006/seislm-large/tree/3ad2a723faeded0ca45b555c9c0ea8823affcc4f) |
+| Base | 6 | 240 | 11.4M | [ltlltl2006/seislm-base](https://huggingface.co/ltlltl2006/seislm-base/tree/a9e9f79af940a3ea28a49ef9fa495ae89b48d576) |
+| Large | 12 | 768 | 90.7M | [ltlltl2006/seislm-large](https://huggingface.co/ltlltl2006/seislm-large/tree/3ad2a723faeded0ca45b555c9c0ea8823affcc4f) |
 
 Both models are available as portable Hub bundles under the MIT license. The loading API accepts the catalog aliases `"base"` and `"large"`, full Hub repository IDs, and local bundles. Parameter counts include the pretraining heads; `encode()` returns contextual encoder features. Pin a revision, as above, when reproducing a result.
 
 ## Examples
 
-| Notebook | What you will do |
+| Notebook | Description |
 |---|---|
-| [1. Pretrained inference](examples/demo_pretrained_inference.ipynb) · [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/18dqsNcNsF9Kc9D53YPIVJMEjW_JX1ox7) | Load a real ObsPy waveform, compare the input and contextual features, and export the results |
-| [2. Visualize pretrained features](examples/demo_seislm_visualized_pretrained_features.ipynb) · [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/150HS1pyoY4FLnVRksc9E9Bw4UI2q7NtQ) | Compare pretrained and randomly initialized embeddings using t-SNE; hover over a point to inspect its waveform |
+| [1. Pretrained inference](examples/demo_pretrained_inference.ipynb) · [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/18dqsNcNsF9Kc9D53YPIVJMEjW_JX1ox7) | Pretrained feature extraction from a real seismic waveform, with aligned waveform and feature plots |
+| [2. Visualize pretrained features](examples/demo_seislm_visualized_pretrained_features.ipynb) · [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/150HS1pyoY4FLnVRksc9E9Bw4UI2q7NtQ) | t-SNE comparison of pretrained and randomly initialized embeddings, with interactive waveform inspection |
+| [3. Foreshock/aftershock classification](examples/demo_seislm_foreshock_aftershock_classification.ipynb) · [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1QYxAyBi3h8P0m_FZ4ajeJ5oel5X1mrii) | Nine-class NRCA classification using the original SeisLM-base fine-tuning recipe and final-checkpoint evaluation |
 
-Open the up-to-date hosted demos using the Colab links above. Choose a **Python 3** runtime; a GPU is recommended. Both notebooks install the public SeisLM wheel and load pinned Hugging Face encoders, without a repository clone, model login, W&B account, or legacy checkpoint. See [notebook execution and Colab checks](docs/notebooks.md) for data downloads, expected outputs, and validation records.
+Open the up-to-date hosted demos using the Colab links above. Choose a **Python 3** runtime. A GPU is recommended for inference and visualization and required for classification, which uses SeisLM base. All three notebooks install the public SeisLM wheel and load pinned Hugging Face encoders, without a repository clone, model login, W&B account, or legacy checkpoint. See [notebook execution and Colab checks](docs/notebooks.md) for data downloads, expected outputs, and validation records.
 
 Execute the same notebook locally in a fresh kernel:
 
@@ -67,13 +68,15 @@ uv run --locked --group notebook python scripts/run_notebook.py --model base --d
 uv run --locked --group notebook python scripts/run_notebook.py --model base --device cuda --output-dir .artifacts/notebooks/base-cuda
 ```
 
-Use `--model large` for the large encoder. Select the feature-visualization notebook with `--notebook` and include `--extra notebooks`:
+For inference and feature visualization, use `--model large` for the large encoder. Select the feature-visualization notebook with `--notebook` and include `--extra notebooks`:
 
 ```bash
 uv run --locked --extra notebooks --group notebook python scripts/run_notebook.py --notebook examples/demo_seislm_visualized_pretrained_features.ipynb --model base --device cuda --output-dir .artifacts/notebooks/features-base-cuda
 ```
 
-The runner saves an executed notebook, exported results, and a machine-readable report. Local locked runs skip the installation cell. The `notebook` dependency group supplies inference and execution dependencies; the `notebooks` extra adds the dependencies needed by the feature-visualization example.
+For classification, follow the [full training command](docs/notebooks.md#original-foreshockaftershock-experiment).
+
+The runner saves an executed notebook, exported results, and a machine-readable report. Local locked runs skip the installation cell. The `notebook` dependency group supplies inference and execution dependencies; the `notebooks` extra adds the training and visualization dependencies needed by the other two examples.
 
 ## Development and regression checks
 
